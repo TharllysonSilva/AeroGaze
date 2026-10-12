@@ -5,6 +5,7 @@ Objetivo: demonstrar uma inspeção capturada sem internet, com inferência loca
 ## Entregue nesta etapa
 
 - Base Android em `apps/mobile`, tema escuro inspirado no dossiê e navegação em português: Painel, Mapa, Scout, Rebanho e Tarefas.
+- Ampliação 0.2.0: cenário operacional simulado compartilhado pela API, com irrigação, pragas, drone, rebanho, estoque, mapa de ativos e histórico. Ensaio Android de falha/reparo/irrigação passou; publicação e recibo Solana real têm suas evidências e pendências em [integração demonstrável](integracao-demonstravel.md).
 - Cinco telas visuais em Flutter com dados ilustrativos e identificação de demonstração; entrada real e navegação operacional adicionadas em 12/10/2026; referências visuais antigas preservadas como demonstração. A adaptação às imagens e ao DESIGN.md está em [implementação mobile](../design/implementacao-mobile.md).
 - Stories detalhadas e skills locais por módulo. O app registra inspeções manuais, persiste SQLite e sincroniza com ACK da API. Câmera/GPS/inferência e mídia permanecem pendentes.
 

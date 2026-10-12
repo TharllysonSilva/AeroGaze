@@ -8,7 +8,7 @@ import '../../core/database/field_database.dart';
 import '../../core/sync/operations_api.dart';
 import '../../core/sync/sync_runner.dart';
 import '../auth/auth_widgets.dart';
-import '../herd/herd_page.dart';
+import 'scenario_view.dart';
 
 class OperationsPage extends StatefulWidget {
   const OperationsPage({
@@ -507,21 +507,14 @@ class _OperationsPageState extends State<OperationsPage>
           0 => _dashboard(),
           1 => _map(),
           2 => _scout(),
-          3 => [
-            const AuthNotice(
-              'REBANHO ILUSTRATIVO: a API ainda não oferece cadastro ou telemetria de animais.',
-            ),
-            const SizedBox(height: 850, child: HerdPage()),
-          ],
+          3 => [_scenario('rebanho')],
           4 => _tasksView(),
           _ => <Widget>[],
         },
         const SizedBox(height: 24),
         TextButton(
-          onPressed: widget.onOpenDemo,
-          child: const Text(
-            'Abrir telas visuais de demonstração (dados ilustrativos)',
-          ),
+          onPressed: () => setState(() => _tab = 0),
+          child: const Text('Central de operação, irrigação e telemetria'),
         ),
       ],
     ),
@@ -679,8 +672,19 @@ class _OperationsPageState extends State<OperationsPage>
       child: const Text('Atualizar tarefas'),
     ),
   ];
+  Widget _scenario(String section) => _farm == null
+      ? const Text('Selecione uma fazenda.')
+      : ScenarioView(
+          key: ValueKey('scenario:$_scope:$section'),
+          session: widget.session,
+          farmId: _farm!,
+          section: section,
+          offline: _offlineTest,
+          onChanged: _refresh,
+        );
   List<Widget> _dashboard() => [
     Text('PAINEL DA FAZENDA', style: CommandType.display(size: 20)),
+    _scenario('painel'),
     const SizedBox(height: 16),
     AuthCard(
       child: Column(
@@ -732,6 +736,7 @@ class _OperationsPageState extends State<OperationsPage>
     ),
   ];
   List<Widget> _map() => [
+    _scenario('mapa'),
     Text('ÁREAS DA FAZENDA • API', style: CommandType.display(size: 20)),
     const AuthNotice(
       'Limites cadastrados em GeoJSON. Posição do aparelho, satélite e NDVI ainda não estão conectados.',

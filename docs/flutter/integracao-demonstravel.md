@@ -60,3 +60,15 @@ O Android QA iniciou e concluiu a tarefa criada pela inspeção do próprio ensa
 Mobile exige ACK com o mesmo ID/status; falha mantém a lista anterior e pede atualização antes de repetir. API bloqueia auditor, isola organizações e registra status/auditoria na mesma transação com lock da tarefa. Requisições repetidas do mesmo status não geram novo histórico. Web permite consultar tarefas concluídas e não oferece edição ao auditor.
 
 O evento de inspeção e sua prova são preservados; isso não é prova blockchain da execução física do serviço. Execução offline de tarefas e controle de versão concorrente permanecem fora do recorte. Solana não foi integrada e foi adiada a pedido do usuário até receber mais requisitos.
+
+## Ampliação autorizada do cenário simulado
+
+Após a validação principal, o usuário solicitou a simulação operacional compartilhada e a integração Solana. App 0.2.0 consulta `/v1/demo/farms/:farmId`, com cache separado pela mesma identidade de API/organização/usuário/fazenda. Painel oferece falha/reparo/início/parada de irrigação, ocorrência de pragas, drone, estoque e apoio. Mapa mostra polígonos cadastrados e ativos fictícios com zoom e seleção textual. Rebanho consulta 12 animais do cenário e oferece atendimento, vacinação e transferência; ações exigem conexão e confirmação da API.
+
+Ensaio Android QA `integration_test/scenario_test.dart` passou no aparelho RMX3710: executou os botões falha → reparo → irrigação, consultou os três estados no backend local descartável e conferiu histórico, UUID de evento e 14 marcadores de telemetria simulada. É evidência de interface nativa + API local; não substitui o ensaio dessas operações na API publicada.
+
+APK release prod 0.2.0+2 gerado com URL da API publicada, sem senha ou chave no binário. Assinado com chave de desenvolvimento para instalação direta no hackathon; não é entrega de Play Store. SHA-256: `717403968B34FD23665D7003E906C54846DAE7777D201AED8F2E710DDB17E1B3`. Web recebe `/download` público com o mesmo APK.
+
+API passou em 73 testes, incluindo cenário persistente, isolamento, idempotência, reparo que resolve tarefa e recibo Solana que preserva os bytes assinados após resposta perdida. Web compilou com `/solana/:eventId` público. Solana usa Memo e hash SHA-256 do evento; Base conserva a ancoragem de lotes. A transação real Devnet ainda depende do faucet e da configuração/deploy no servidor. Não declarar integração de nuvem concluída até conferir a transação real e os links publicados.
+
+As referências antigas de hardware, satélite, SMS e biometria continuam simulações. Dados do cenário são identificados como fictícios e não representam sensores físicos ou inferência de IA. Stories originais de GPS, câmera, TFLite e rebanho real não são concluídas por este recorte.
