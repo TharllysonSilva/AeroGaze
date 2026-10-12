@@ -69,6 +69,14 @@ Ensaio Android QA `integration_test/scenario_test.dart` passou no aparelho RMX37
 
 APK release prod 0.2.0+2 gerado com URL da API publicada, sem senha ou chave no binário. Assinado com chave de desenvolvimento para instalação direta no hackathon; não é entrega de Play Store. SHA-256: `717403968B34FD23665D7003E906C54846DAE7777D201AED8F2E710DDB17E1B3`. Web recebe `/download` público com o mesmo APK.
 
-API passou em 73 testes, incluindo cenário persistente, isolamento, idempotência, reparo que resolve tarefa e recibo Solana que preserva os bytes assinados após resposta perdida. Web compilou com `/solana/:eventId` público. Solana usa Memo e hash SHA-256 do evento; Base conserva a ancoragem de lotes. A transação real Devnet ainda depende do faucet e da configuração/deploy no servidor. Não declarar integração de nuvem concluída até conferir a transação real e os links publicados.
+API passou em 74 testes, incluindo cenário persistente, isolamento, idempotência, reparo que resolve tarefa, bloqueio de assinatura sem saldo e recibo Solana que preserva os bytes assinados após resposta perdida. As imagens completas API/web passaram no Docker Node 22 Alpine. Solana usa Memo e hash SHA-256 do evento; Base conserva a ancoragem de lotes.
+
+## Publicação e provas do cenário
+
+- [Web pública](https://aerogaze-web.onrender.com/login): login 200; Comando, Telemetria, Frota, Análise e Logística 200, usando o cenário da API publicada.
+- [Download Android](https://aerogaze-web.onrender.com/download): página pública 200; APK sem autenticação 200, com 61.800.282 bytes e SHA-256 indicado acima.
+- Irrigação falha/reparo/início confirmada na API publicada. [Lote Base Sepolia](https://aerogaze-web.onrender.com/verificar/98df82dc-9225-4d8b-b2b4-cbab3afbce16) conferido: valid/checked/matches=true, revoked=false.
+- Operação simulada `drone.dispatch`, evento `c47b7ad6-9f75-4207-896b-987ef7eb40ed`: [recibo público Solana](https://aerogaze-web.onrender.com/solana/c47b7ad6-9f75-4207-896b-987ef7eb40ed) respondeu 200 com “Recibo confirmado e conferido na rede”, aviso de simulação e assinatura real `3gNNiPg5gzB97exawzVqtAfWKKztew4WKxReur7DVeaopBcaAckG6m4rMq14SJNZVmQdppm9mbwf4V5Pu2hGqcBn`. API retornou checked/valid=true, cluster Devnet e emissor `3sNKJaqzzRpZjwbMxxgJERUTstsLFQMPQqs9MxyqR3A9`.
+- AeroGaze Dev 0.2.0 instalado por -r no aparelho, mantendo dados e sessão; aberto após instalação. Repouso USB restaurado e conferido como 0. O ensaio nativo da nova irrigação foi contra backend local; o ciclo de nuvem registrado acima foi executado pelo cliente HTTP da equipe. Ensaio manual adicional do usuário no app atualizado fica separado destas evidências.
 
 As referências antigas de hardware, satélite, SMS e biometria continuam simulações. Dados do cenário são identificados como fictícios e não representam sensores físicos ou inferência de IA. Stories originais de GPS, câmera, TFLite e rebanho real não são concluídas por este recorte.
