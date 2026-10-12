@@ -50,7 +50,7 @@ Como operador, quero registrar uma execução sem apagar o histórico anterior.
 
 - Prioridade: P0. Tamanho: G.
 - Dependências: FL-008; FL-017; FL-023; papéis FL-006.
-- Status: planejada.
+- Status: parcial para ações online. Iniciar/concluir via API com auditoria atômica; execução offline, versão esperada e evento de execução permanecem planejados.
 
 **Implementação**
 

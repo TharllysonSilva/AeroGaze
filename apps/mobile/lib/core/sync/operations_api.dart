@@ -76,11 +76,12 @@ class OperationsApi {
     http.Response response;
     try {
       final uri = Uri.parse('$baseUrl$path');
-      response =
-          await (method == 'GET'
-                  ? _client.get(uri, headers: headers)
-                  : _client.post(uri, headers: headers, body: jsonEncode(body)))
-              .timeout(const Duration(seconds: 45));
+      response = await (switch (method) {
+        'GET' => _client.get(uri, headers: headers),
+        'POST' => _client.post(uri, headers: headers, body: jsonEncode(body)),
+        'PATCH' => _client.patch(uri, headers: headers, body: jsonEncode(body)),
+        _ => throw ArgumentError('Método HTTP não permitido'),
+      }).timeout(const Duration(seconds: 45));
     } catch (_) {
       throw const ApiFailure(
         0,
@@ -138,6 +139,27 @@ class OperationsApi {
       throw const ApiFailure(
         0,
         'Resposta de autenticação incompatível com o contrato.',
+      );
+    }
+  }
+
+  Future<void> setTaskStatus(
+    ApiSession session,
+    String taskId,
+    String status,
+  ) async {
+    final response = await request(
+      'PATCH',
+      '/v1/tasks/$taskId/status',
+      token: session.token,
+      body: {'status': status},
+    );
+    if (response is! Map ||
+        response['id'] != taskId ||
+        response['status'] != status) {
+      throw const ApiFailure(
+        0,
+        'A API não confirmou o status desta tarefa. Atualize a lista antes de tentar novamente.',
       );
     }
   }

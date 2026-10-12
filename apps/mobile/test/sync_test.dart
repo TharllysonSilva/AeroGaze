@@ -252,4 +252,43 @@ void main() {
       2,
     );
   });
+  test(
+    'task status uses authenticated PATCH and validates its own acknowledgment',
+    () async {
+      final api = OperationsApi(
+        session.baseUrl,
+        client: MockClient((request) async {
+          expect(request.method, 'PATCH');
+          expect(request.url.path, '/v1/tasks/task-a/status');
+          expect(request.headers['authorization'], 'Bearer test-only-token');
+          expect(jsonDecode(request.body), {'status': 'em_progresso'});
+          return http.Response(
+            jsonEncode({'id': 'task-a', 'status': 'em_progresso'}),
+            200,
+          );
+        }),
+      );
+      addTearDown(api.close);
+      await api.setTaskStatus(session, 'task-a', 'em_progresso');
+    },
+  );
+  test(
+    'wrong task acknowledgment never confirms the requested change',
+    () async {
+      final api = OperationsApi(
+        session.baseUrl,
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({'id': 'another-task', 'status': 'concluida'}),
+            200,
+          ),
+        ),
+      );
+      addTearDown(api.close);
+      await expectLater(
+        api.setTaskStatus(session, 'task-a', 'concluida'),
+        throwsA(isA<ApiFailure>()),
+      );
+    },
+  );
 }

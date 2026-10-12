@@ -38,8 +38,8 @@ As cinco abas retornaram à entrada real: Painel com contadores/alertas, Mapa ca
 
 ## Verificação técnica
 
-- Flutter: 31 testes passaram após a navegação e cadastro explícito; análise sem problemas. Cobrem persistência em arquivo, rollback, migração v1→v2, perda de ACK, isolamento, lease, 401/403/500 e Retry-After.
-- API: 59 testes passaram, incluindo Postgres/PostGIS real em banco exclusivamente de teste. Um teste adicional de HTTP RPC real em loopback passou: conexão sem resposta encerrou em 15,2 segundos e a leitura recuperou sem transação; timeout e recuperação preservam fila; consulta pública com RPC indisponível permanece pendente.
+- Flutter: 33 testes passaram após a navegação, cadastro explícito e ações online de tarefa; análise sem problemas. Cobrem persistência em arquivo, rollback, migração v1→v2, perda de ACK, isolamento, lease, 401/403/500 e Retry-After.
+- API: 64 testes passaram, incluindo Postgres/PostGIS real em banco exclusivamente de teste. Um teste adicional de HTTP RPC real em loopback passou: conexão sem resposta encerrou em 15,2 segundos e a leitura recuperou sem transação; timeout e recuperação preservam fila; consulta pública com RPC indisponível permanece pendente.
 - Web: 7 testes de estado da prova e TypeScript aprovados. Mock, RPC indisponível e ausência de confirmação de revogação não aparecem como prova EVM conferida.
 - Contrato: 10 testes Linux/Node 22 via Docker passaram. O script não monta .env ou keystores.
 
@@ -50,3 +50,11 @@ Câmera, GPS, mídia privada, TFLite, execução de tarefas offline, background 
 Revisão Hardhat: versões atuais compatíveis foram mantidas; npm audit ainda aponta 21 advisories (11 low, 2 moderate, 8 high) no conjunto de desenvolvimento. A correção total proposta exige migração major de Hardhat/plugins; não aplicada com --force. A web também tem avisos transitivos de dependências; não declarar dependências saneadas.
 
 Credenciais existem somente no arquivo local ignorado da API. Nenhuma senha, JWT, URI de banco ou chave de carteira foi incluída nesta evidência.
+
+## Ações online de tarefas — 12/10/2026
+
+O Android QA iniciou e concluiu a tarefa criada pela inspeção do próprio ensaio, consultando o status real na API local após cada ação. A prova pública mock permaneceu válida com a mesma raiz depois da alteração de tarefa. O ensaio passou sem abrir uma segunda instância do banco para consultar o UUID: o teste acompanha a identidade mostrada na fila.
+
+Mobile exige ACK com o mesmo ID/status; falha mantém a lista anterior e pede atualização antes de repetir. API bloqueia auditor, isola organizações e registra status/auditoria na mesma transação com lock da tarefa. Requisições repetidas do mesmo status não geram novo histórico. Web permite consultar tarefas concluídas e não oferece edição ao auditor.
+
+O evento de inspeção e sua prova são preservados; isso não é prova blockchain da execução física do serviço. Execução offline de tarefas e controle de versão concorrente permanecem fora do recorte. Solana não foi integrada e foi adiada a pedido do usuário até receber mais requisitos.

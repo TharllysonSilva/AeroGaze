@@ -12,6 +12,8 @@ Estados locais: pending, sending com lease persistido, retry com backoff/jitter,
 
 `POST /v1/sync/devices` registra explicitamente um identificador Flutter para gerente/administrador na fazenda autorizada. Retorna deviceId/farmId/registered. Cadastro é idempotente e não reativa revogados ou muda propriedade. A ação do Scout reabilita somente rejeições 403 do próprio escopo, mantendo UUID/envelope.
 
+`PATCH /v1/tasks/:id/status` recebe status pendente/em_progresso/concluida. O app usa iniciar/concluir online, exige retorno com o mesmo ID/status e recarrega as listas. Auditor é somente leitura. Status e auditoria são atômicos; repetir o mesmo status não duplica histórico. Esta ação não altera a inspeção nem constitui prova blockchain da execução física da tarefa. Execução offline de tarefas não está implementada.
+
 ## Propostas futuras, não implementadas
 
 Os contratos abaixo são propostas históricas para mídia, inferência e cursor. Não representam endpoints disponíveis no recorte atual.

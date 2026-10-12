@@ -369,6 +369,34 @@ class _OperationsPageState extends State<OperationsPage>
     }
   }
 
+  Future<void> _changeTaskStatus(String taskId, String status) async {
+    if (_busy ||
+        _offlineTest ||
+        _farm == null ||
+        ![
+          'operador',
+          'veterinario',
+          'gerente',
+          'administrador',
+        ].contains(widget.session.role)) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await _api.setTaskStatus(widget.session, taskId, status);
+      await _refresh();
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _error =
+              'Alteração de tarefa não confirmada. Atualize a lista antes de repetir. $error',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -570,6 +598,9 @@ class _OperationsPageState extends State<OperationsPage>
     const SizedBox(height: 22),
   ];
   List<Widget> _tasksView() => [
+    const AuthNotice(
+      'Iniciar e concluir tarefas exige conexão com a API. A execução offline de tarefas ainda não está disponível.',
+    ),
     Text(
       'TAREFAS DA API • ${_tasks.length}',
       style: CommandType.display(size: 16),
@@ -585,7 +616,12 @@ class _OperationsPageState extends State<OperationsPage>
               if (task['description'] != null)
                 Text(task['description'], style: CommandType.body(size: 12)),
               Text(
-                '${task['status']} • ${task['priority']}',
+                '${switch (task['status']) {
+                  'pendente' => 'Pendente',
+                  'em_progresso' => 'Em andamento',
+                  'concluida' => 'Concluída',
+                  _ => task['status'],
+                }} • ${task['priority']}',
                 style: CommandType.label(size: 11),
               ),
               if (task['source_event_id'] != null)
@@ -598,6 +634,39 @@ class _OperationsPageState extends State<OperationsPage>
                   onPressed: () =>
                       _taskProof(task['source_event_id'] as String),
                   child: const Text('Consultar prova deste evento'),
+                ),
+              if ([
+                'operador',
+                'veterinario',
+                'gerente',
+                'administrador',
+              ].contains(widget.session.role))
+                Wrap(
+                  spacing: 12,
+                  children: [
+                    if (task['status'] == 'pendente')
+                      TextButton(
+                        key: ValueKey('task-start:${task['id']}'),
+                        onPressed: _busy || _offlineTest
+                            ? null
+                            : () =>
+                                  _changeTaskStatus(task['id'], 'em_progresso'),
+                        child: const Text('Iniciar tarefa'),
+                      ),
+                    if (task['status'] == 'em_progresso')
+                      TextButton(
+                        key: ValueKey('task-complete:${task['id']}'),
+                        onPressed: _busy || _offlineTest
+                            ? null
+                            : () => _changeTaskStatus(task['id'], 'concluida'),
+                        child: const Text('Concluir tarefa'),
+                      ),
+                    if (task['status'] == 'concluida')
+                      const Text(
+                        'Concluída pela API',
+                        style: TextStyle(color: CommandColors.primary),
+                      ),
+                  ],
                 ),
             ],
           ),

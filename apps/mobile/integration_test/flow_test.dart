@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:aerogaze_mobile/app/aerogaze_app.dart';
 import 'package:aerogaze_mobile/core/sync/operations_api.dart';
-import 'package:aerogaze_mobile/core/database/field_database.dart';
 import 'package:aerogaze_mobile/features/auth/auth_widgets.dart';
 
 Future<void> waitFor(WidgetTester tester, Finder finder) async {
@@ -60,6 +59,13 @@ void main() {
       await tap(tester, 'tab-tasks');
       await tap(tester, 'tab-scout');
       await waitFor(tester, find.byKey(const ValueKey('operation-notes')));
+      await waitFor(tester, find.textContaining('API • Atualizado'));
+      final uuidPattern = RegExp(r'^[0-9a-f]{8}-[0-9a-f-]{27}$');
+      final previousIds = tester
+          .widgetList<SelectableText>(find.byType(SelectableText))
+          .map((w) => w.data ?? '')
+          .where(uuidPattern.hasMatch)
+          .toSet();
       await tap(tester, 'operation-offline');
       final notes =
           'Inspeção Android sem inferência ${DateTime.now().millisecondsSinceEpoch}';
@@ -70,15 +76,14 @@ void main() {
       );
       await tap(tester, 'operation-save');
       await waitFor(tester, find.text('Pendente de envio'));
-      final db = FieldDatabase();
-      String? eventId;
-      for (final row in await db.rows(session.scope(farm))) {
-        if ((await db.event(row.id, row.scope))['payload']['notes'] == notes) {
-          eventId = row.id;
-        }
-      }
-      await db.close();
-      expect(eventId, isNotNull);
+      final newEventFinder = find.byWidgetPredicate(
+        (w) =>
+            w is SelectableText &&
+            uuidPattern.hasMatch(w.data ?? '') &&
+            !previousIds.contains(w.data),
+      );
+      await waitFor(tester, newEventFinder);
+      final eventId = tester.widget<SelectableText>(newEventFinder).data!;
       var events = await api.list('/v1/events?farmId=$farm', session);
       expect(events.where((e) => e['payload']['notes'] == notes), isEmpty);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -86,6 +91,7 @@ void main() {
       await tester.pumpWidget(const AeroGazeApp(showSplash: false));
       await tap(tester, 'tab-scout');
       await waitFor(tester, find.text('Pendente de envio'));
+      await waitFor(tester, find.textContaining('API • Atualizado'));
       await tap(tester, 'operation-sync');
       for (var i = 0; i < 30; i++) {
         events = await api.list('/v1/events?farmId=$farm', session);
@@ -97,7 +103,7 @@ void main() {
         tester,
         find.descendant(
           of: find.ancestor(
-            of: find.text(eventId!),
+            of: find.text(eventId),
             matching: find.byType(AuthCard),
           ),
           matching: find.text('Ingestão confirmada • accepted'),
@@ -136,6 +142,39 @@ void main() {
       await tap(tester, 'operation-sync');
       final after = await api.list('/v1/tasks?farmId=$farm', session);
       expect(after.where((t) => t['source_event_id'] == event['id']).length, 1);
+      final task = after.singleWhere(
+        (t) => t['source_event_id'] == event['id'],
+      );
+      await tap(tester, 'tab-tasks');
+      for (final step in [
+        ('task-start:', 'em_progresso'),
+        ('task-complete:', 'concluida'),
+      ]) {
+        final key = ValueKey('${step.$1}${task['id']}');
+        await waitFor(
+          tester,
+          find.byWidgetPredicate(
+            (w) => w is TextButton && w.key == key && w.onPressed != null,
+          ),
+        );
+        await tap(tester, key.value);
+        var confirmed = false;
+        for (var i = 0; i < 30; i++) {
+          final list = await api.list('/v1/tasks?farmId=$farm', session);
+          confirmed = list.any(
+            (t) => t['id'] == task['id'] && t['status'] == step.$2,
+          );
+          if (confirmed) break;
+          await tester.pump(const Duration(seconds: 1));
+        }
+        expect(confirmed, isTrue);
+      }
+      final afterTask = await api.request(
+        'GET',
+        '/v1/verify/${receipt['batch']['id']}',
+      );
+      expect(afterTask['valid'], isTrue);
+      expect(afterTask['merkleRoot'], proof['merkleRoot']);
       expect(tester.takeException(), isNull);
     },
     timeout: const Timeout(Duration(minutes: 5)),
