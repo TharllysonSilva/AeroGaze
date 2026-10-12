@@ -53,6 +53,8 @@ Credenciais existem somente no arquivo local ignorado da API. Nenhuma senha, JWT
 
 ## Ações online de tarefas — 12/10/2026
 
+Após publicar a API `6abdc37` e instalar o AeroGaze Dev atualizado, o usuário confirmou o ensaio Iniciar → Concluir no celular. A consulta à API publicada confirmou `concluida` para a tarefa `16f7b385-ac66-4407-9432-132e5d16e604`, preservando o evento de origem `3ddecea2-9690-4404-a9a9-ab4b76d30404`. O Comando web local respondeu 200, mostrou o evento e o histórico de tarefas concluídas. A prova pública do lote `8a765b62-f0d6-4b32-872e-feded8d27885` continuou válida, conferida na Base Sepolia (84532), sem revogação e com a mesma transação registrada acima; a página web de verificação também respondeu 200 com “Íntegro e conferido na rede”.
+
 O Android QA iniciou e concluiu a tarefa criada pela inspeção do próprio ensaio, consultando o status real na API local após cada ação. A prova pública mock permaneceu válida com a mesma raiz depois da alteração de tarefa. O ensaio passou sem abrir uma segunda instância do banco para consultar o UUID: o teste acompanha a identidade mostrada na fila.
 
 Mobile exige ACK com o mesmo ID/status; falha mantém a lista anterior e pede atualização antes de repetir. API bloqueia auditor, isola organizações e registra status/auditoria na mesma transação com lock da tarefa. Requisições repetidas do mesmo status não geram novo histórico. Web permite consultar tarefas concluídas e não oferece edição ao auditor.
