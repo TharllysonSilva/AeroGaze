@@ -1,0 +1,143 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
+import 'package:aerogaze_mobile/app/aerogaze_app.dart';
+import 'package:aerogaze_mobile/core/sync/operations_api.dart';
+import 'package:aerogaze_mobile/core/database/field_database.dart';
+import 'package:aerogaze_mobile/features/auth/auth_widgets.dart';
+
+Future<void> waitFor(WidgetTester tester, Finder finder) async {
+  for (var i = 0; i < 180; i++) {
+    await tester.pump(const Duration(milliseconds: 250));
+    if (finder.evaluate().isNotEmpty) return;
+  }
+  fail('Expected widget was not displayed: $finder');
+}
+
+Future<void> tap(WidgetTester tester, String key) async {
+  final finder = find.byKey(ValueKey(key));
+  await waitFor(tester, finder);
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
+  await tester.pumpAndSettle();
+}
+
+void main() {
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  testWidgets(
+    'native session, offline SQLite reopening, HTTP ACK, task and public mock receipt',
+    (tester) async {
+      const url = String.fromEnvironment('API_URL');
+      expect({
+        'http://10.0.2.2:3302',
+        'http://127.0.0.1:3302',
+      }, contains(url)); // Local disposable backend only.
+      final api = OperationsApi(url);
+      addTearDown(api.close);
+      final session = await api.login(
+        'gerente@demo.aerogaze',
+        'demo-integration-2026',
+      );
+      final farms = await api.list('/v1/farms', session);
+      final farm = farms.first['id'];
+      await tester.pumpWidget(const AeroGazeApp(showSplash: false));
+      await tester.pumpAndSettle();
+      if (find.byKey(const ValueKey('login-operator')).evaluate().isNotEmpty) {
+        await tester.enterText(
+          find.byKey(const ValueKey('login-operator')),
+          'gerente@demo.aerogaze',
+        );
+        await tester.enterText(
+          find.byKey(const ValueKey('login-password')),
+          'demo-integration-2026',
+        );
+        await tap(tester, 'login-submit');
+      }
+      await tap(tester, 'tab-map');
+      await waitFor(tester, find.text('ÁREAS DA FAZENDA • API'));
+      await tap(tester, 'tab-herd');
+      await tap(tester, 'tab-tasks');
+      await tap(tester, 'tab-scout');
+      await waitFor(tester, find.byKey(const ValueKey('operation-notes')));
+      await tap(tester, 'operation-offline');
+      final notes =
+          'Inspeção Android sem inferência ${DateTime.now().millisecondsSinceEpoch}';
+      await tester.ensureVisible(find.byKey(const ValueKey('operation-notes')));
+      await tester.enterText(
+        find.byKey(const ValueKey('operation-notes')),
+        notes,
+      );
+      await tap(tester, 'operation-save');
+      await waitFor(tester, find.text('Pendente de envio'));
+      final db = FieldDatabase();
+      String? eventId;
+      for (final row in await db.rows(session.scope(farm))) {
+        if ((await db.event(row.id, row.scope))['payload']['notes'] == notes) {
+          eventId = row.id;
+        }
+      }
+      await db.close();
+      expect(eventId, isNotNull);
+      var events = await api.list('/v1/events?farmId=$farm', session);
+      expect(events.where((e) => e['payload']['notes'] == notes), isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const AeroGazeApp(showSplash: false));
+      await tap(tester, 'tab-scout');
+      await waitFor(tester, find.text('Pendente de envio'));
+      await tap(tester, 'operation-sync');
+      for (var i = 0; i < 30; i++) {
+        events = await api.list('/v1/events?farmId=$farm', session);
+        if (events.any((e) => e['id'] == eventId)) break;
+        await tester.pump(const Duration(seconds: 2));
+      }
+      expect(events.where((e) => e['id'] == eventId).length, 1);
+      await waitFor(
+        tester,
+        find.descendant(
+          of: find.ancestor(
+            of: find.text(eventId!),
+            matching: find.byType(AuthCard),
+          ),
+          matching: find.text('Ingestão confirmada • accepted'),
+        ),
+      );
+      final event = events.singleWhere((e) => e['id'] == eventId);
+      expect(event['payload']['notes'], notes);
+      expect(event['payload']['captureMode'], 'manual');
+      expect(event['payload']['ai'], isNull);
+      final tasks = await api.list('/v1/tasks?farmId=$farm', session);
+      expect(tasks.where((t) => t['source_event_id'] == event['id']).length, 1);
+      Map<String, dynamic>? receipt;
+      for (var i = 0; i < 20; i++) {
+        receipt =
+            (await api.request(
+                  'GET',
+                  '/v1/sync/events/${event['id']}/receipt',
+                  token: session.token,
+                ))
+                as Map<String, dynamic>;
+        if (receipt['batch']?['status'] == 'ancorado') break;
+        await Future<void>.delayed(const Duration(seconds: 2));
+      }
+      expect(receipt!['tasks'].length, 1);
+      expect(receipt['batch']['status'], 'ancorado');
+      final proof = await api.request(
+        'GET',
+        '/v1/verify/${receipt['batch']['id']}',
+      );
+      expect(proof['valid'], isTrue);
+      expect(proof['anchor']['mode'], 'mock');
+      expect(
+        proof['note'],
+        contains('SIMULADA'),
+      ); // Never present this local test as blockchain proof.
+      await tap(tester, 'operation-sync');
+      final after = await api.list('/v1/tasks?farmId=$farm', session);
+      expect(after.where((t) => t['source_event_id'] == event['id']).length, 1);
+      expect(tester.takeException(), isNull);
+    },
+    timeout: const Timeout(Duration(minutes: 5)),
+  );
+}

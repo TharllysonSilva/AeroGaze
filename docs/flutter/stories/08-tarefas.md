@@ -10,7 +10,7 @@ Como operador, quero ver prioridades da fazenda e o estado dos meus envios.
 
 - Prioridade: P0. Tamanho: M.
 - Dependências: FL-018; FL-019.
-- Status: planejada.
+- Status: parcial. Recorte manual integrado em 12/10/2026; [evidências e limites](../integracao-demonstravel.md).
 
 **Implementação**
 
@@ -30,7 +30,7 @@ Como operador, quero abrir a ação gerada pela inspeção.
 
 - Prioridade: P0. Tamanho: M.
 - Dependências: FL-019; regra backend cria tarefa.
-- Status: planejada.
+- Status: parcial. Recorte manual integrado em 12/10/2026; [evidências e limites](../integracao-demonstravel.md).
 
 **Implementação**
 

@@ -5,8 +5,8 @@ Objetivo: demonstrar uma inspeção capturada sem internet, com inferência loca
 ## Entregue nesta etapa
 
 - Base Android em `apps/mobile`, tema escuro inspirado no dossiê e navegação em português: Painel, Mapa, Scout, Rebanho e Tarefas.
-- Cinco telas visuais em Flutter com dados ilustrativos e identificação de demonstração; integrações operacionais ainda não implementadas. A adaptação às imagens e ao DESIGN.md está em [implementação mobile](../design/implementacao-mobile.md).
-- Stories detalhadas e skills locais por módulo. O app não realiza captura, persistência, inferência nem sincronização operacional.
+- Cinco telas visuais em Flutter com dados ilustrativos e identificação de demonstração; entrada real e navegação operacional adicionadas em 12/10/2026; referências visuais antigas preservadas como demonstração. A adaptação às imagens e ao DESIGN.md está em [implementação mobile](../design/implementacao-mobile.md).
+- Stories detalhadas e skills locais por módulo. O app registra inspeções manuais, persiste SQLite e sincroniza com ACK da API. Câmera/GPS/inferência e mídia permanecem pendentes.
 
 ## Índice de execução
 
@@ -36,11 +36,11 @@ P0 significa necessário para o fluxo real da demonstração. P1 significa compl
 
 ## Dependências externas ainda não entregues
 
-API NestJS com identidade, idempotência e ACK durável; validação PostGIS; upload S3; regras que geram alerta/tarefa; modelo `.tflite`, labels e especificação de pré-processamento; verificador público e worker de ancoragem. Os contratos locais são propostas, não endpoints já existentes.
+A API NestJS publicada já fornece identidade, ACK por UUID, regras, tarefas e verificador. Permanecem fora do recorte manual: validação PostGIS; upload S3; regras que geram alerta/tarefa; modelo `.tflite`, labels e especificação de pré-processamento; verificador público e worker de ancoragem. Os contratos locais são propostas, não endpoints já existentes.
 
 ## Como continuar
 
 Exemplo de pedido: `Use a skill em skills/aerogaze-flutter-offline/SKILL.md e implemente FL-007 e FL-008, conforme docs/flutter/stories/03-offline.md.`
 
-O próximo bloco recomendado é Drift + inspeção/outbox atômicos. Fechar e reabrir o processo sem perder uma inspeção é o primeiro marco de produto; navegar entre telas não atende esse marco.
+O recorte manual está descrito com evidências em [integração demonstrável](integracao-demonstravel.md). Próximas etapas incluem captura com mídia/GPS, inferência local, execução offline de tarefas e testes de encerramento do processo Android durante envio.
 

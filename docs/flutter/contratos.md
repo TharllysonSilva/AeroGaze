@@ -1,3 +1,21 @@
+# Contrato integrado do recorte manual — 12/10/2026
+
+API publicada: `https://aerogaze-api.onrender.com`. Login `POST /v1/auth/login` recebe email/password e retorna accessToken/user. Fazendas: `GET /v1/farms`; áreas: `GET /v1/farms/:farmId/plots`; tarefas/alertas: GET com farmId. Autorização deriva do token no servidor.
+
+`POST /v1/sync/events` recebe `{farmId, deviceId, events:[{id,type:"inspection.recorded",schemaVersion:1,occurredAt,payload:{notes,captureMode:"manual"}}]}`. Organização e autoria são atribuídas pela API. O `id` UUID é a chave de idempotência e permanece igual em todas as tentativas; não há cabeçalho Idempotency-Key nesse endpoint.
+
+Resposta `{acks:[{id,status}],summary,serverTime}`. O recorte envia um evento por chamada e exige exatamente um ACK do mesmo id com status accepted ou duplicate. Rejected, resposta incompleta e 409 não são sucesso. Ingestão confirmada é distinta de lote ancorado.
+
+`GET /v1/sync/events/:eventId/receipt` autenticado retorna eventId, ingestion, tasks e batch (null enquanto ainda não formado). `GET /v1/verify/:batchId` é público. Só apresentar confirmação EVM quando valid=true, status=ancorado, anchor.mode=evm, onChain.checked=true, matches=true e revoked=false. Mock permanece explicitamente simulado; RPC indisponível aparece como consulta pendente.
+
+Estados locais: pending, sending com lease persistido, retry com backoff/jitter, paused para 401, rejected para 400/403/409/422 e synced após ACK. 429 respeita Retry-After numérico inclusive em reenvio manual. 403 exige revalidação explícita após correção do cadastro; envelope/UUID permanecem intactos.
+
+`POST /v1/sync/devices` registra explicitamente um identificador Flutter para gerente/administrador na fazenda autorizada. Retorna deviceId/farmId/registered. Cadastro é idempotente e não reativa revogados ou muda propriedade. A ação do Scout reabilita somente rejeições 403 do próprio escopo, mantendo UUID/envelope.
+
+## Propostas futuras, não implementadas
+
+Os contratos abaixo são propostas históricas para mídia, inferência e cursor. Não representam endpoints disponíveis no recorte atual.
+
 # Contratos mobile propostos
 
 Não existe backend neste repositório. Nomes de campos e endpoints abaixo são propostas para alinhar mobile/backend; não são especificações confirmadas pelos PDFs. Versionar antes de integrar. Exemplos omitem credenciais.

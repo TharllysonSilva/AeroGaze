@@ -1,6 +1,6 @@
 # AeroGaze Mobile
 
-Aplicativo Flutter Android para o hackathon. As cinco telas (Painel, Mapa, Scout, Rebanho e Tarefas) seguem as novas referências, com Space Grotesk e Inter incorporadas para uso offline. Captura, Drift, IA, sincronização, tarefas reais e QR ainda são stories pendentes.
+Aplicativo Flutter Android para o hackathon. As cinco telas (Painel, Mapa, Scout, Rebanho e Tarefas) seguem as novas referências, com Space Grotesk e Inter incorporadas para uso offline. A entrada principal usa autenticação real e a API publicada. Inspeções manuais usam Drift/SQLite, outbox, tarefas reais e verificação pública. Câmera, GPS, TFLite, QR e execução de tarefa offline seguem pendentes.
 
 [Referências e decisões visuais](../../docs/design/implementacao-mobile.md). Os layouts e controles são widgets Flutter; os fundos fotográficos usam regiões dos PNGs recebidos enquanto as fotos originais não estiverem disponíveis. Os dados são ilustrativos, identificados por DEMO no cabeçalho; toque em SISTEMA ATIVO para detalhes.
 
@@ -8,11 +8,23 @@ Aplicativo Flutter Android para o hackathon. As cinco telas (Painel, Mapa, Scout
 
 A abertura nativa usa apenas fundo escuro antes da splash art, sem uma tela intermediária com o ícone central. Esse ajuste exige reconstruir/reinstalar o app pelo F5; hot reload não atualiza os temas Android.
 
-A splash tem radar animado: a varredura acende os quatro pontos, que mostram anéis e voltam ao estado normal. A barra preenche de 0 a 100% durante aproximadamente 4,5 segundos e, somente ao completar, abre o Painel com fade. Reinicie a execução pelo F5 para ver o ciclo desde o início.
+A splash tem radar animado: a varredura acende os quatro pontos, que mostram anéis e voltam ao estado normal. A barra preenche de 0 a 100% durante aproximadamente 4,5 segundos e, somente ao completar, abre o login com fade. Reinicie a execução pelo F5 para ver o ciclo desde o início.
 
-A passagem foi otimizada: imagens pré-carregadas, Painel montado durante a splash, outras abas construídas no primeiro acesso e remoção da pausa fixa ao completar a barra. Para avaliar a fluidez em aparelho, há também a opção F5 `AeroGaze Android · Dev (Profile)`, com diagnóstico de frames da transição no console. O [Flutter recomenda profile em aparelho físico](https://docs.flutter.dev/perf/ui-performance); debug pode apresentar pausas de compilação JIT.
+A passagem foi otimizada: imagens pré-carregadas, tela de entrada montada durante a splash, outras abas construídas no primeiro acesso e remoção da pausa fixa ao completar a barra. Para avaliar a fluidez em aparelho, há também a opção F5 `AeroGaze Android · Dev (Profile)`, com diagnóstico de frames da transição no console. O [Flutter recomenda profile em aparelho físico](https://docs.flutter.dev/perf/ui-performance); debug pode apresentar pausas de compilação JIT.
 
 Verificação em 06/10/2026 após otimizar a transição: formatação concluída, análise sem problemas, nove testes aprovados e APKs dev/debug e prod/release gerados. Ícone nativo conferido no APK dev e estados ativo, normal e completo da splash revisados. Dev/profile instalado no Android conectado; medição de fluidez inconclusiva devido ao bloqueio da tela, encerrada sem nova tentativa a pedido do usuário.
+
+## Login e operação real
+
+Entre com uma conta da API. O endpoint padrão é `https://aerogaze-api.onrender.com`; `--dart-define=API_URL=...` permite um backend de teste. A conta de integração é `gerente.integracao@demo.aerogaze`; sua senha existe somente no arquivo local ignorado `.env.integration.local` da API. Não copiar esse arquivo para o Git, APK ou logs.
+
+Depois de entrar, as cinco abas estão disponíveis: Painel mostra contadores e alertas da API; Mapa desenha os polígonos cadastrados; Scout registra observação manual e a fila local; Tarefas lista efeitos do backend com UUID de origem. Rebanho permanece ilustrativo, com aviso: não há endpoint de animais. O botão de telas visuais preserva as referências antigas como demonstração explícita.
+
+O token e o cache operacional são armazenados com flutter_secure_storage. A inspeção e o envelope são gravados na mesma transação SQLite, particionados por API, organização, usuário e fazenda. Logout preserva a fila; outra conta não a consulta. Dispositivos precisam de cadastro na API: o administrador pode usar o script restrito `provision-integration-device.cjs`. HTTP 403 preserva o original e permite revalidação explícita após cadastro; não faz retry infinito.
+
+Recuperação por e-mail, SMS/satélite, apoio e biometria continuam simulações identificadas. Esses métodos não abrem a sessão real. O login livre existe somente na configuração explícita dos testes visuais.
+
+[Fluxo e evidências](../../docs/flutter/integracao-demonstravel.md). As stories completas permanecem parciais: não há captura de mídia, inferência, cursor de alterações ou garantia de execução com o app encerrado.
 
 ## Executar
 
@@ -38,7 +50,7 @@ Sem dispositivo Android, liste os emuladores com `flutter emulators` e inicie um
 
 Os dois apps podem coexistir no aparelho e têm armazenamento Android separado. `dev` é o padrão no pubspec: `flutter run` equivale a selecionar dev. O Dart lê o flavor nativo com `appFlavor`, sem exigir um segundo parâmetro de ambiente ou entrypoint separado. O nome instalado distingue Dev; o ambiente também aparece ao tocar em SISTEMA ATIVO. A marca interna é AEROGAZE COMMAND em ambos, conforme a referência visual.
 
-Flavor escolhe o ambiente; debug/release escolhe o modo de compilação. `flutter run --flavor prod` ainda usa debug. Para executar prod em release no aparelho: `flutter run --flavor prod --release`. Os dois flavors ainda mostram os dados fictícios da demonstração; não há endpoints de API configurados.
+Flavor escolhe o ambiente; debug/release escolhe o modo de compilação. `flutter run --flavor prod` ainda usa debug. Para executar prod em release no aparelho: `flutter run --flavor prod --release`. Dev e prod usam a API publicada por padrão. A flavor `qa` tem ID `.qa`, armazenamento separado e nome AeroGaze QA para ensaios nativos.
 
 No VS Code, abra a raiz do repositório, instale as extensões Flutter/Dart, selecione um dispositivo Android e use F5 com `AeroGaze Android · Dev` ou `AeroGaze Android · Prod`. As configurações ficam em [launch.json](../../.vscode/launch.json).
 
@@ -76,3 +88,13 @@ Configuração baseada na [documentação oficial de flavors Android do Flutter]
 [Índice Flutter](../../docs/flutter/README.md), [arquitetura](../../docs/flutter/arquitetura.md), [contratos propostos](../../docs/flutter/contratos.md) e [roteiro de demonstração](../../docs/flutter/demo.md).
 
 Skills estão em `../../skills`, com roteamento pelo `AGENTS.md` da raiz. Próximo bloco: FL-007/008/009, persistência Drift e outbox.
+
+## Ensaio Android isolado
+
+Inicie o backend descartável com `node scripts/start-integration-api.cjs` no repositório da API (banco local de teste exigido), configure `adb reverse tcp:3302 tcp:3302` e execute:
+
+```powershell
+flutter test integration_test/flow_test.dart -d ID_DO_ANDROID --flavor qa --dart-define=API_URL=http://127.0.0.1:3302
+```
+
+Esse teste usa credenciais fictícias do banco local e ancoragem **mock**; não serve como evidência EVM. O ensaio EVM publicado é separado. Se o sandbox Windows gerar erro de socket Unix do Gradle, use um diretório curto de temporários via JAVA_TOOL_OPTIONS; não alterar a configuração global do Java.

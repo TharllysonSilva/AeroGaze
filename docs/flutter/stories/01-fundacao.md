@@ -38,6 +38,8 @@ flutter pub get, flutter analyze e flutter test passam; app inicializa no Androi
 
 Análise, teste de bootstrap e execução Android. A execução física ainda deve ser registrada.
 
+Atualização em 12/10/2026: splash agora abre o login de demonstração, com a marca própria e navegação para recuperação e apoio. O Painel é montado após a entrada; suas cinco abas e o estado entre abas são preservados até sair. A execução deste novo fluxo em Android físico permanece pendente.
+
 ## FL-002 - Tema e navegação de campo
 
 Como operador, quero navegar com uma mão entre as funções de campo.

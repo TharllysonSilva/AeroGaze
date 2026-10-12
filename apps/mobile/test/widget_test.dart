@@ -31,7 +31,11 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
-      const AeroGazeApp(showSplash: false, environment: AppEnvironment.prod),
+      const AeroGazeApp(
+        showSplash: false,
+        showLogin: false,
+        environment: AppEnvironment.prod,
+      ),
     );
     await tester.pumpAndSettle();
     expect(find.text('AEROGAZE\nCOMMAND'), findsOneWidget);
@@ -56,7 +60,9 @@ void main() {
   testWidgets('tabs mount on first access and keep their state afterwards', (
     tester,
   ) async {
-    await tester.pumpWidget(const AeroGazeApp(showSplash: false));
+    await tester.pumpWidget(
+      const AeroGazeApp(showSplash: false, showLogin: false),
+    );
     await tester.pumpAndSettle();
     expect(find.byType(MapPage, skipOffstage: false), findsNothing);
     expect(find.byType(HerdPage, skipOffstage: false), findsNothing);
@@ -78,7 +84,7 @@ void main() {
 
   testWidgets('task search filters native cards', (tester) async {
     await tester.pumpWidget(
-      const AeroGazeApp(showSplash: false, initialTab: 4),
+      const AeroGazeApp(showSplash: false, showLogin: false, initialTab: 4),
     );
     await tester.enterText(find.byKey(const ValueKey('task-search')), 'bovino');
     await tester.pumpAndSettle();
@@ -93,7 +99,7 @@ void main() {
   });
   testWidgets('herd filtering retains critical animal', (tester) async {
     await tester.pumpWidget(
-      const AeroGazeApp(showSplash: false, initialTab: 3),
+      const AeroGazeApp(showSplash: false, showLogin: false, initialTab: 3),
     );
     await tester.tap(find.text('Filtrar'));
     await tester.pumpAndSettle();
@@ -109,7 +115,9 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     tester.platformDispatcher.textScaleFactorTestValue = 1.5;
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-    await tester.pumpWidget(const AeroGazeApp(showSplash: false));
+    await tester.pumpWidget(
+      const AeroGazeApp(showSplash: false, showLogin: false),
+    );
     for (var i = 0; i < 5; i++) {
       await tester.tap(find.byKey(ValueKey('nav-$i')));
       await tester.pumpAndSettle();
