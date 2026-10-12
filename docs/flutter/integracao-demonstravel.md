@@ -80,3 +80,14 @@ API passou em 74 testes, incluindo cenário persistente, isolamento, idempotênc
 - AeroGaze Dev 0.2.0 instalado por -r no aparelho, mantendo dados e sessão; aberto após instalação. Repouso USB restaurado e conferido como 0. O ensaio nativo da nova irrigação foi contra backend local; o ciclo de nuvem registrado acima foi executado pelo cliente HTTP da equipe. Ensaio manual adicional do usuário no app atualizado fica separado destas evidências.
 
 As referências antigas de hardware, satélite, SMS e biometria continuam simulações. Dados do cenário são identificados como fictícios e não representam sensores físicos ou inferência de IA. Stories originais de GPS, câmera, TFLite e rebanho real não são concluídas por este recorte.
+
+## Ensaio manual final Android → nuvem → web → duas blockchains
+
+Em 12/10/2026, após instalar AeroGaze Dev 0.2.0 e publicar API `dbc16d1`, o usuário executou falha e reparo no celular. API confirmou estado final `parada`, versão 8, dois eventos persistidos e tarefa `cce67074-c3a7-4c59-b987-4519dde042eb` concluída. Comando web público respondeu 200 e exibiu o reparo e seu evento.
+
+- Falha: `1733fb24-ae98-41cc-9349-bad241301279`.
+- Reparo: `c6bbcc39-b018-4d2e-a91e-739a84c369e5`.
+- [Lote Base Sepolia](https://aerogaze-web.onrender.com/verificar/bc783c4b-6592-4b06-8dc3-601bbe69961f): ambos com valid/checked/matches=true, revoked=false.
+- [Solana da falha](https://aerogaze-web.onrender.com/solana/1733fb24-ae98-41cc-9349-bad241301279) e [Solana do reparo](https://aerogaze-web.onrender.com/solana/c6bbcc39-b018-4d2e-a91e-739a84c369e5): confirmados, checked/valid=true em Devnet.
+
+Este ensaio comprova o fluxo publicado da simulação: app, persistência da API, tarefa concluída, histórico web e recibos reais nas duas redes de teste. Não comprova manutenção física. As notas anteriores sobre Solana adiada e ausência de rebanho descrevem etapas anteriores: agora Solana Devnet está integrada e o endpoint de cenário fornece 12 animais fictícios; rebanho real continua fora do recorte.
