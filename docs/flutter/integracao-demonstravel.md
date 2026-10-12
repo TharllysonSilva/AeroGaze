@@ -15,6 +15,19 @@ Cliente HTTP Flutter com banco SQLite em arquivo, reabertura e mesma identidade 
 
 Login no Comando web local em http://localhost:3001/comando respondeu 200 e seu HTML continha a tarefa e o mesmo UUID de origem. A web usa a API publicada. Não foi publicada externamente nesta etapa.
 
+## Ensaio final do celular contra a nuvem
+
+AeroGaze Dev atualizado por instalação -r, sem apagar dados, usando a API publicada. O usuário entrou com a conta real, cadastrou o aparelho no Scout e confirmou o envio manual. API, Comando web compilado e página pública foram conferidos para o mesmo evento.
+
+- Aparelho: `flutter-79a98c33-412d-46a0-90a6-169aaaa175ed`.
+- Evento Android: `3ddecea2-9690-4404-a9a9-ab4b76d30404`.
+- Tarefa única: `16f7b385-ac66-4407-9432-132e5d16e604`.
+- Lote Base Sepolia: `8a765b62-f0d6-4b32-872e-feded8d27885`.
+- [Transação](https://sepolia.basescan.org/tx/0x43cc723c0c8dd9124ce83b1a777dae0f849c716edb995d82960be3aa231f8633).
+- [Verificação pública](https://aerogaze-api.onrender.com/v1/verify/8a765b62-f0d6-4b32-872e-feded8d27885): valid=true; checked=true; matches=true; revoked=false; modo evm; chainId 84532.
+
+A página pública da web para esse lote respondeu 200 e mostrou “Íntegro e conferido na rede”. O ensaio de nuvem foi manual; o teste nativo automatizado abaixo usa backend descartável e mock. A configuração original de repouso da tela (0) foi restaurada e conferida pelo serviço de energia do Android.
+
 ## Android
 
 Ensaio no aparelho conectado, em aplicativo QA separado, passou: login HTTP real no backend local descartável, salvamento sem envio, desmontagem/reabertura da árvore do app com reconexão ao SQLite e armazenamento seguro, ACK accepted, uma única tarefa, lote e verificação pública mock. Repetir sincronização não duplicou a tarefa. Esse ensaio não é prova de ancoragem EVM no celular e não substitui teste de matar o processo durante envio.
