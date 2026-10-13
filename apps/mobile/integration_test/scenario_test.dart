@@ -43,8 +43,11 @@ void main() {
       await tester.ensureVisible(finder);
       await tester.pumpAndSettle();
       for (var i = 0; i < 180; i++) {
-        final button = tester.widget<FilledButton>(
-          find.ancestor(of: finder, matching: find.byType(FilledButton)),
+        final button = tester.widget<ButtonStyleButton>(
+          find.ancestor(
+            of: finder,
+            matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
+          ),
         );
         if (button.onPressed != null) break;
         await tester.pump(const Duration(milliseconds: 250));

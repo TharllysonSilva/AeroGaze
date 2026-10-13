@@ -310,7 +310,13 @@ class _FieldShellState extends State<FieldShell> {
 }
 
 class CommandHeader extends StatelessWidget {
-  const CommandHeader({required this.environment, this.onSignOut, super.key});
+  final bool connected;
+  const CommandHeader({
+    required this.environment,
+    this.onSignOut,
+    this.connected = false,
+    super.key,
+  });
   final AppEnvironment environment;
   final VoidCallback? onSignOut;
 
@@ -324,10 +330,10 @@ class CommandHeader extends StatelessWidget {
           final compact = constraints.maxWidth < 330;
           return Row(
             children: [
-              const Icon(
-                Icons.satellite_alt,
-                color: CommandColors.primary,
-                size: 28,
+              Image.asset(
+                'assets/branding/aerogaze-logo.png',
+                width: 28,
+                height: 28,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -348,8 +354,10 @@ class CommandHeader extends StatelessWidget {
                   onTap: () => showDemoDetail(
                     context,
                     'AeroGaze Command',
-                    'Ambiente ${environment.name}. Painel, mapa, scouting, rebanho e tarefas '
-                        'usam dados ilustrativos das referências fornecidas. Sensores e IA não estão conectados.',
+                    connected
+                        ? 'Autenticação e ações conectadas à API. Cenário e posições fictícios. Sensores e IA não conectados.'
+                        : 'Ambiente ${environment.name}. Painel, mapa, scouting, rebanho e tarefas '
+                              'usam dados ilustrativos das referências fornecidas. Sensores e IA não estão conectados.',
                   ),
                   borderRadius: BorderRadius.circular(24),
                   child: Container(
@@ -390,7 +398,7 @@ class CommandHeader extends StatelessWidget {
               if (onSignOut != null)
                 IconButton(
                   key: const ValueKey('logout'),
-                  tooltip: 'Sair da demonstração',
+                  tooltip: 'Sair da conta',
                   onPressed: onSignOut,
                   icon: const Icon(Icons.logout, size: 20),
                 )
@@ -462,6 +470,15 @@ class CommandNavigation extends StatelessWidget {
             for (var i = 0; i < labels.length; i++)
               Expanded(
                 child: Padding(
+                  key: ValueKey(
+                    [
+                      'tab-panel',
+                      'tab-map',
+                      'tab-scout',
+                      'tab-herd',
+                      'tab-tasks',
+                    ][i],
+                  ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 5,
                     vertical: 8,

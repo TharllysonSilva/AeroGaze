@@ -26,6 +26,14 @@ Navegação, busca de tarefas, seleção/filtro de animais e controles de camada
 
 [Space Grotesk](https://github.com/google/fonts/tree/main/ofl/spacegrotesk) e [Inter](https://github.com/google/fonts/tree/main/ofl/inter), distribuídas pelo repositório Google Fonts sob OFL. Os arquivos foram incorporados com suas licenças; não há download de fontes durante a execução do app.
 
+## Interface autenticada — atualização 13/10/2026
+
+AeroGaze 0.3.0 aplica a composição das referências ao fluxo autenticado: cabeçalho com marca própria, cinco destinos compactos, índice circular derivado dos animais do cenário, alertas, resumo de rebanho, imagem orbital ilustrativa, atividades, mapa com camadas/zoom, card de irrigação, indicadores de solo, lista e detalhe de animais, série de atividade e tarefas com busca.
+
+As operações usam API e eventos existentes. Scout conserva SQLite/outbox e oferece salvar observação/atribuir inspeção. Tarefas oferece criação de revisão por inspeção manual, início, conclusão e prova. Cenário fornece clorofila/confiança/nitrogênio e estatísticas animais explicitamente fictícios; não há inferência clínica ou agronômica real. Dados atuais, contagens, IDs e estados variam, portanto a interface não copia números fixos dos PNGs.
+
+Prévia renderizada de componentes conectados é gerada por `test/scenario_presentation_test.dart` com `CAPTURE_SCENARIO=true`; usa snapshot de teste marcado como simulado. Verificações cobrem largura 360px, fonte 1.5, bloqueio do auditor e identidade do animal atendido. Fotos permanecem regiões ilustrativas dos assets fornecidos; não são uma tela inteira usada como interface.
+
 ## Verificação
 
 Comparar capturas com fontes reais, nas proporções das referências; conferir também aparelho Android e texto ampliado. Registrar resultado da análise, testes e build no README do app. Isso comprova apresentação e interações locais, sem encerrar as stories de captura/persistência/IA/sincronização.

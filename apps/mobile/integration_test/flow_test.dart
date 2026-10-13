@@ -54,12 +54,14 @@ void main() {
         await tap(tester, 'login-submit');
       }
       await tap(tester, 'tab-map');
-      await waitFor(tester, find.text('ÁREAS DA FAZENDA • API'));
+      await waitFor(
+        tester,
+        find.text('POLÍGONOS CADASTRADOS • POSIÇÕES FICTÍCIAS'),
+      );
       await tap(tester, 'tab-herd');
       await tap(tester, 'tab-tasks');
       await tap(tester, 'tab-scout');
       await waitFor(tester, find.byKey(const ValueKey('operation-notes')));
-      await waitFor(tester, find.textContaining('API • Atualizado'));
       final uuidPattern = RegExp(r'^[0-9a-f]{8}-[0-9a-f-]{27}$');
       final previousIds = tester
           .widgetList<SelectableText>(find.byType(SelectableText))
@@ -91,7 +93,6 @@ void main() {
       await tester.pumpWidget(const AeroGazeApp(showSplash: false));
       await tap(tester, 'tab-scout');
       await waitFor(tester, find.text('Pendente de envio'));
-      await waitFor(tester, find.textContaining('API • Atualizado'));
       await tap(tester, 'operation-sync');
       for (var i = 0; i < 30; i++) {
         events = await api.list('/v1/events?farmId=$farm', session);
@@ -175,6 +176,36 @@ void main() {
       );
       expect(afterTask['valid'], isTrue);
       expect(afterTask['merkleRoot'], proof['merkleRoot']);
+      final extraNotes =
+          'Nova revisão pelo botão de tarefas ${DateTime.now().millisecondsSinceEpoch}';
+      await tester.ensureVisible(find.byIcon(Icons.add_circle));
+      await tester.tap(find.byIcon(Icons.add_circle));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('new-review-notes')),
+        extraNotes,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Registrar'));
+      await tester.pumpAndSettle();
+      Map<String, dynamic>? extraEvent;
+      for (var i = 0; i < 30; i++) {
+        final current = await api.list('/v1/events?farmId=$farm', session);
+        extraEvent = current
+            .where((e) => e['payload']['notes'] == extraNotes)
+            .firstOrNull;
+        if (extraEvent != null) break;
+        await tester.pump(const Duration(seconds: 1));
+      }
+      expect(extraEvent, isNotNull);
+      final extraTasks = await api.list('/v1/tasks?farmId=$farm', session);
+      expect(
+        extraTasks
+            .where((t) => t['source_event_id'] == extraEvent!['id'])
+            .length,
+        1,
+      );
+
       expect(tester.takeException(), isNull);
     },
     timeout: const Timeout(Duration(minutes: 5)),

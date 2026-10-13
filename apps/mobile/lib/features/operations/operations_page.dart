@@ -9,6 +9,10 @@ import '../../core/sync/operations_api.dart';
 import '../../core/sync/sync_runner.dart';
 import '../auth/auth_widgets.dart';
 import 'scenario_view.dart';
+import 'review_dialog.dart';
+import '../../core/design/reference_photo.dart';
+import '../../app/aerogaze_app.dart' show CommandHeader, CommandNavigation;
+import '../../app/app_environment.dart';
 
 class OperationsPage extends StatefulWidget {
   const OperationsPage({
@@ -36,6 +40,8 @@ class _OperationsPageState extends State<OperationsPage>
       _alerts = [],
       _plots = [];
   int _tab = 0;
+  String _taskSearch = '';
+  bool _showSettings = false;
   String? _updatedAt;
   bool _cached = false;
   List<OutboxData> _queue = [];
@@ -369,6 +375,34 @@ class _OperationsPageState extends State<OperationsPage>
     }
   }
 
+  Future<void> _newReview() async {
+    final text = await showDialog<String>(
+      context: context,
+      builder: (_) => const ReviewDialog(),
+    );
+    if (text == null || text.isEmpty || !mounted || _farm == null || _busy) {
+      return;
+    }
+    _notes.text = text;
+    await _save();
+    if (_notes.text.trim().isNotEmpty) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    await _synchronize(manual: true);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Inspeção salva; tarefa gerada após aceitação pela API. Consulte a fila no Scout.',
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _changeTaskStatus(String taskId, String status) async {
     if (_busy ||
         _offlineTest ||
@@ -409,117 +443,112 @@ class _OperationsPageState extends State<OperationsPage>
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    bottomNavigationBar: NavigationBar(
-      selectedIndex: _tab,
-      onDestinationSelected: (i) => setState(() => _tab = i),
-      destinations: const [
-        NavigationDestination(
-          key: ValueKey('tab-panel'),
-          icon: Icon(Icons.space_dashboard),
-          label: 'PAINEL',
-        ),
-        NavigationDestination(
-          key: ValueKey('tab-map'),
-          icon: Icon(Icons.map),
-          label: 'MAPA',
-        ),
-        NavigationDestination(
-          key: ValueKey('tab-scout'),
-          icon: Icon(Icons.visibility),
-          label: 'SCOUT',
-        ),
-        NavigationDestination(
-          key: ValueKey('tab-herd'),
-          icon: Icon(Icons.pets),
-          label: 'REBANHO',
-        ),
-        NavigationDestination(
-          key: ValueKey('tab-tasks'),
-          icon: Icon(Icons.assignment),
-          label: 'TAREFAS',
-        ),
-      ],
+    bottomNavigationBar: CommandNavigation(
+      index: _tab,
+      onSelect: (i) => setState(() => _tab = i),
     ),
-    body: AuthFrame(
-      live: true,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'OPERAÇÃO CONECTADA',
-                style: CommandType.display(size: 22),
-              ),
-            ),
-            IconButton(
-              tooltip: 'Sair da conta',
-              onPressed: _busy ? null : widget.onSignOut,
-              icon: const Icon(Icons.logout),
-            ),
-          ],
-        ),
-        Text(
-          '${widget.session.name} • ${widget.session.role}',
-          style: CommandType.body(size: 13),
-        ),
-        const SizedBox(height: 12),
-        const AuthNotice(
-          'Dados operacionais abaixo vêm da API. Inspeção manual sem câmera, GPS ou modelo de IA; gera tarefa de revisão humana.',
-        ),
-        if (_error != null) ...[
-          const SizedBox(height: 12),
-          AuthNotice(_error!),
-        ],
-        const SizedBox(height: 18),
-        if (_farms.isNotEmpty)
-          DropdownButtonFormField<String>(
-            key: ValueKey(_farm),
-            initialValue: _farm,
-            isExpanded: true,
-            items: _farms
-                .map(
-                  (f) => DropdownMenuItem<String>(
-                    value: f['id'],
-                    child: Text(f['name'], overflow: TextOverflow.ellipsis),
+    body: SafeArea(
+      child: Column(
+        children: [
+          CommandHeader(
+            environment: AppEnvironment.fromFlavor(appFlavor),
+            onSignOut: widget.onSignOut,
+            connected: true,
+          ),
+          Expanded(
+            child: Stack(
+              children: [
+                if (_tab == 2)
+                  const Positioned.fill(
+                    child: ReferencePhoto(
+                      asset: 'assets/reference/aerogaze_scouting_pt.png',
+                      region: Rect.fromLTWH(0, 98, 34, 1370),
+                    ),
                   ),
-                )
-                .toList(),
-            onChanged: _busy ? null : _switchFarm,
-            decoration: const InputDecoration(
-              labelText: 'Fazenda autorizada pela API',
+                SingleChildScrollView(
+                  key: PageStorageKey('operation-scroll-$_tab'),
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${widget.session.name} • ${widget.session.role} • SIMULAÇÃO',
+                              style: CommandType.label(size: 10),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Conta e fazenda',
+                            onPressed: () =>
+                                setState(() => _showSettings = !_showSettings),
+                            icon: const Icon(Icons.tune),
+                          ),
+                        ],
+                      ),
+                      if (_error != null) AuthNotice(_error!),
+                      if (_showSettings && _farms.isNotEmpty)
+                        DropdownButtonFormField<String>(
+                          key: ValueKey(_farm),
+                          initialValue: _farm,
+                          isExpanded: true,
+                          items: _farms
+                              .map(
+                                (f) => DropdownMenuItem<String>(
+                                  value: f['id'],
+                                  child: Text(
+                                    f['name'],
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: _busy ? null : _switchFarm,
+                          decoration: const InputDecoration(
+                            labelText: 'Fazenda autorizada pela API',
+                          ),
+                        ),
+                      if (_farms.isEmpty)
+                        const Text(
+                          'Aguardando uma fazenda autorizada. Verifique a conexão e o cadastro.',
+                        ),
+                      if (_showSettings)
+                        TextButton(
+                          onPressed: _busy ? null : _load,
+                          child: const Text('Atualizar fazendas'),
+                        ),
+                      if (_showSettings)
+                        Text(
+                          'Alertas: ${_alerts.length} • Áreas: ${_plots.length}',
+                          style: CommandType.label(),
+                        ),
+                      if (_showSettings && _updatedAt != null)
+                        Text(
+                          '${_cached ? 'CACHE' : 'API'} • $_updatedAt',
+                          style: CommandType.body(size: 11),
+                        ),
+                      const SizedBox(height: 12),
+                      ...switch (_tab) {
+                        0 => _dashboard(),
+                        1 => _map(),
+                        2 => _scout(),
+                        3 => [_scenario('rebanho')],
+                        4 => _tasksView(),
+                        _ => <Widget>[],
+                      },
+                    ],
+                  ),
+                ),
+              ],
             ),
-          )
-        else
-          const Text(
-            'Aguardando uma fazenda autorizada. Verifique a conexão e o cadastro.',
           ),
-        TextButton(
-          onPressed: _busy ? null : _load,
-          child: const Text('Atualizar fazendas'),
-        ),
-        if (_updatedAt != null)
-          Text(
-            '${_cached ? 'CACHE • ' : 'API • '}Atualizado em $_updatedAt',
-            style: CommandType.body(size: 11),
-          ),
-        const SizedBox(height: 16),
-        ...switch (_tab) {
-          0 => _dashboard(),
-          1 => _map(),
-          2 => _scout(),
-          3 => [_scenario('rebanho')],
-          4 => _tasksView(),
-          _ => <Widget>[],
-        },
-        const SizedBox(height: 24),
-        TextButton(
-          onPressed: () => setState(() => _tab = 0),
-          child: const Text('Central de operação, irrigação e telemetria'),
-        ),
-      ],
+        ],
+      ),
     ),
   );
   List<Widget> _scout() => [
+    _scenario('scout'),
     if (_deviceId != null) ...[
       SelectableText('Aparelho: $_deviceId', style: CommandType.body(size: 10)),
       if (['gerente', 'administrador'].contains(widget.session.role))
@@ -549,7 +578,7 @@ class _OperationsPageState extends State<OperationsPage>
           const SizedBox(height: 16),
           AuthAction(
             key: const ValueKey('operation-save'),
-            label: _busy ? 'AGUARDE...' : 'SALVAR NO APARELHO',
+            label: _busy ? 'AGUARDE...' : 'SALVAR OBSERVAÇÃO',
             icon: Icons.save_outlined,
             onPressed:
                 _busy || _farm == null || widget.session.role == 'auditor'
@@ -591,6 +620,34 @@ class _OperationsPageState extends State<OperationsPage>
     const SizedBox(height: 22),
   ];
   List<Widget> _tasksView() => [
+    Text('Central de Tarefas', style: CommandType.display(size: 28)),
+    const SizedBox(height: 20),
+    TextField(
+      key: const ValueKey('live-task-search'),
+      onChanged: (v) => setState(() => _taskSearch = v.toLowerCase()),
+      decoration: const InputDecoration(
+        hintText: 'Buscar tarefas ou ordens...',
+        prefixIcon: Icon(Icons.search),
+      ),
+    ),
+    const SizedBox(height: 24),
+    Row(
+      children: [
+        Expanded(
+          child: Text('TAREFAS PRIORITÁRIAS', style: CommandType.label()),
+        ),
+        IconButton(
+          tooltip: 'Nova tarefa de revisão',
+          onPressed: widget.session.role == 'auditor' ? null : _newReview,
+          icon: const Icon(
+            Icons.add_circle,
+            color: CommandColors.primary,
+            size: 36,
+          ),
+        ),
+      ],
+    ),
+
     const AuthNotice(
       'Iniciar e concluir tarefas exige conexão com a API. A execução offline de tarefas ainda não está disponível.',
     ),
@@ -598,14 +655,40 @@ class _OperationsPageState extends State<OperationsPage>
       'TAREFAS DA API • ${_tasks.length}',
       style: CommandType.display(size: 16),
     ),
-    for (final task in _tasks)
+    for (final task in _tasks.where(
+      (t) => '${t['title']} ${t['description']}'.toLowerCase().contains(
+        _taskSearch,
+      ),
+    ))
       Padding(
         padding: const EdgeInsets.only(top: 12),
-        child: AuthCard(
+        child: CommandPanel(
+          accent: task['status'] == 'concluida'
+              ? CommandColors.dim
+              : task['priority'] == 'critica'
+              ? CommandColors.error
+              : CommandColors.primary,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(task['title'], style: CommandType.body()),
+              Row(
+                children: [
+                  Icon(
+                    task['title'].toString().toLowerCase().contains('irrig')
+                        ? Icons.water_drop
+                        : Icons.assignment,
+                    color: CommandColors.primary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      task['title'],
+                      style: CommandType.display(size: 20),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
               if (task['description'] != null)
                 Text(task['description'], style: CommandType.body(size: 12)),
               Text(
@@ -681,92 +764,13 @@ class _OperationsPageState extends State<OperationsPage>
           section: section,
           offline: _offlineTest,
           onChanged: _refresh,
+          onNavigate: (i) => setState(() => _tab = i),
         );
   List<Widget> _dashboard() => [
-    Text('PAINEL DA FAZENDA', style: CommandType.display(size: 20)),
     _scenario('painel'),
-    const SizedBox(height: 16),
-    AuthCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Tarefas pendentes: ${_tasks.where((t) => t['status'] != 'concluida').length}',
-          ),
-          Text(
-            'Alertas abertos: ${_alerts.where((a) => a['status'] != 'resolvido').length}',
-          ),
-          Text('Áreas cadastradas: ${_plots.length}'),
-          Text(
-            'Envios locais aguardando confirmação: ${_queue.where((r) => r.status != 'synced').length}',
-          ),
-        ],
-      ),
-    ),
-    const SizedBox(height: 16),
-    TextButton(
-      onPressed: () => setState(() => _tab = 2),
-      child: const Text('Registrar inspeção no Scout'),
-    ),
-    TextButton(
-      onPressed: () => setState(() => _tab = 4),
-      child: const Text('Consultar tarefas da API'),
-    ),
-    if (_alerts.isEmpty)
-      const AuthNotice(
-        'Nenhum alerta recebido. Inspeções manuais geram revisão humana; não geram previsões de IA.',
-      ),
-    for (final alert in _alerts)
-      Padding(
-        padding: const EdgeInsets.only(top: 12),
-        child: AuthCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(alert['title'] as String),
-              Text('${alert['severity']} • ${alert['status']}'),
-            ],
-          ),
-        ),
-      ),
-    const SizedBox(height: 16),
-    TextButton(
-      onPressed: _busy ? null : _refresh,
-      child: const Text('Atualizar painel'),
-    ),
+    TextButton(onPressed: _refresh, child: const Text('Atualizar painel')),
   ];
-  List<Widget> _map() => [
-    _scenario('mapa'),
-    Text('ÁREAS DA FAZENDA • API', style: CommandType.display(size: 20)),
-    const AuthNotice(
-      'Limites cadastrados em GeoJSON. Posição do aparelho, satélite e NDVI ainda não estão conectados.',
-    ),
-    if (_plots.isEmpty) const Text('Nenhuma área cadastrada nesta fazenda.'),
-    for (final plot in _plots)
-      Padding(
-        padding: const EdgeInsets.only(top: 12),
-        child: AuthCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(plot['name'] as String, style: CommandType.body()),
-              Text('${plot['kind']}'),
-              SelectableText(
-                'Área: ${plot['id']}',
-                style: CommandType.body(size: 10),
-              ),
-              SizedBox(
-                height: 180,
-                child: CustomPaint(
-                  size: const Size(double.infinity, 180),
-                  painter: _BoundaryPainter(plot['boundary']),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-  ];
+  List<Widget> _map() => [_scenario('mapa')];
   Widget _eventCard(OutboxData row) {
     final receipt = _receipts[row.id];
     final batch = receipt?['batch'] as Map<String, dynamic>?;
@@ -819,53 +823,4 @@ class _OperationsPageState extends State<OperationsPage>
       ),
     );
   }
-}
-
-class _BoundaryPainter extends CustomPainter {
-  _BoundaryPainter(this.boundary);
-  final dynamic boundary;
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (boundary is! Map || boundary['type'] != 'Polygon') return;
-    final rings = boundary['coordinates'] as List?;
-    if (rings == null || rings.isEmpty) return;
-    final points = (rings.first as List)
-        .map((p) => Offset((p[0] as num).toDouble(), (p[1] as num).toDouble()))
-        .toList();
-    if (points.isEmpty) return;
-    final bounds = points.fold(
-      Rect.fromPoints(points.first, points.first),
-      (Rect r, p) => r.expandToInclude(Rect.fromPoints(p, p)),
-    );
-    if (bounds.width == 0 || bounds.height == 0) return;
-    final sx = (size.width - 24) / bounds.width,
-        sy = (size.height - 24) / bounds.height;
-    final scale = sx < sy ? sx : sy;
-    final path = Path();
-    for (var i = 0; i < points.length; i++) {
-      final x = 12 + (points[i].dx - bounds.left) * scale;
-      final y = size.height - 12 - (points[i].dy - bounds.top) * scale;
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-    path.close();
-    canvas.drawPath(
-      path,
-      Paint()..color = CommandColors.primary.withValues(alpha: .15),
-    );
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = CommandColors.primary
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_BoundaryPainter oldDelegate) =>
-      oldDelegate.boundary != boundary;
 }

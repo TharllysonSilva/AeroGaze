@@ -91,3 +91,16 @@ Em 12/10/2026, após instalar AeroGaze Dev 0.2.0 e publicar API `dbc16d1`, o usu
 - [Solana da falha](https://aerogaze-web.onrender.com/solana/1733fb24-ae98-41cc-9349-bad241301279) e [Solana do reparo](https://aerogaze-web.onrender.com/solana/c6bbcc39-b018-4d2e-a91e-739a84c369e5): confirmados, checked/valid=true em Devnet.
 
 Este ensaio comprova o fluxo publicado da simulação: app, persistência da API, tarefa concluída, histórico web e recibos reais nas duas redes de teste. Não comprova manutenção física. As notas anteriores sobre Solana adiada e ausência de rebanho descrevem etapas anteriores: agora Solana Devnet está integrada e o endpoint de cenário fornece 12 animais fictícios; rebanho real continua fora do recorte.
+
+## Fidelidade visual e contas — 13/10/2026
+
+AeroGaze 0.3.0 recompõe a entrada autenticada conforme as cinco referências, preservando API, fila local e provas. Conta/fazenda ficam em ajuste compacto; marca própria, anel de saúde, alertas, rebanho, mapa com camadas/zoom, Scout com fundo ilustrativo e indicadores fictícios, detalhes de animais e busca/criação de tarefas seguem a composição original. Valores e estados são derivados do cenário compartilhado, não copiados dos PNGs.
+
+Seis contas tiveram login 200 revalidado na API publicada. Perfis e escopo estão em [perfis-contas.md](perfis-contas.md); senhas ficam somente no arquivo local ignorado da API. Não há CRUD completo de usuários no app.
+
+- Flutter: 40 testes passaram; análise sem problemas. Testam também texto 1.5 em 360px, bloqueio do auditor, seleção do animal e ciclo de vida da janela de revisão.
+- Android QA físico: falha → reparo → início de irrigação passou contra backend isolado. Fluxo completo repetido passou após restaurar encaminhamento USB e corrigir a janela: login, navegação, SQLite reaberto, ACK único, tarefa iniciada/concluída, mesma prova mock e nova revisão pelo botão de tarefas gerando um evento e uma tarefa na API local.
+- API: 75 testes/9 suítes passaram com Postgres/PostGIS em `aerogaze_acceptance_test`, separado do banco Android e da nuvem. Build aprovado. API publicada retorna clorofila/nitrogênio e estatísticas fictícias para 12 animais.
+- Web: TypeScript e build aprovados. Correção do menu publicada e conferida em navegador autenticado: em 1440px, menu termina em x=320 e conteúdo começa em x=320, sem sobreposição; abaixo de 1024px navegação fica horizontal. Falha/reparo pelo navegador confirmou estado final `parada` na API.
+
+As verificações locais de prova mock não substituem os recibos Base/Solana reais registrados acima. Foto de fundo, sensores, análise agronômica e metabólica continuam explicitamente simulados, sem hardware ou modelo clínico conectado.
