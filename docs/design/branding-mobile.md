@@ -30,6 +30,8 @@ Estados renderizados da animação: [início](previews/radar-inicio.png), [ponto
 
 O Flutter logo padrão foi removido dos mipmaps. Os vetores são gerados a partir do SVG por `apps/mobile/scripts/generate_android_branding.py`, sem dependências Python externas. O conversor preserva paths, cores, stroke e opacidade dos elementos simples deste SVG. Após alterar o arquivo fonte, executar o script e reconstruir o app. A splash é um asset fornecido, não uma reconstrução dos textos em Flutter.
 
+Em 13/10/2026, o PNG de exibição foi novamente exportado do SVG original, com transparência fora do fundo arredondado e sem contorno externo. O PNG anterior continha pixels brancos opacos nos cantos, que apareciam como borda no login e no cabeçalho. Símbolo, cores e geometria foram preservados; SVG fonte e seus metadados permanecem intactos. Web também removeu o retângulo de contorno da logo compartilhada. Versão mobile: 0.3.1+4.
+
 ## Como conferir
 
 Ajuste sem ícone intermediário verificado por análise sem problemas, nove testes aprovados e recompilação dos APKs `dev/debug` e `prod/release`. Conferência visual da nova abertura em aparelho pendente.
@@ -43,3 +45,5 @@ Builds verificados em 06/10/2026: `dev/debug` e `prod/release` aprovados. O APK 
 Após a correção da transição, `dart format lib test`, `flutter analyze` e os nove testes passaram. Os APKs `dev/debug` e `prod/release` foram recompilados. Os testes verificam que o Painel é montado durante a splash, permanece na mesma instância e que o fade começa sem pausa após 100%; também verificam a construção das outras abas no primeiro acesso e a preservação de estado.
 
 O build `dev/profile` foi instalado no Android conectado. A medição da transição ficou inconclusiva porque o aparelho bloqueou durante as tentativas; a única amostra foi da retomada após desbloqueio. A pedido do usuário, a etapa foi encerrada sem nova medição. Portanto, não há confirmação de ausência de frames lentos no aparelho. Para medir depois, usar F5 com `AeroGaze Android · Dev (Profile)` e manter a tela ligada durante a abertura; `TRACE_STARTUP` registra os tempos no console e fica desativado nas configurações comuns.
+
+Validação da correção 0.3.1: análise sem problemas, 40 testes aprovados e ambos os APKs recompilados. As quatro telas de autenticação foram renderizadas novamente, sem os arcos brancos nos cantos da marca. Release SHA-256: 6871E7B4CAB50006213B52FA37678CC0A797D334AAC8539E2D4E39A29C3351AA.
