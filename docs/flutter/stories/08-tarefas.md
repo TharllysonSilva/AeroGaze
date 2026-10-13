@@ -10,7 +10,7 @@ Como operador, quero ver prioridades da fazenda e o estado dos meus envios.
 
 - Prioridade: P0. Tamanho: M.
 - Dependências: FL-018; FL-019.
-- Status: planejada.
+- Status: parcial. Recorte manual integrado em 12/10/2026; [evidências e limites](../integracao-demonstravel.md).
 
 **Implementação**
 
@@ -30,7 +30,7 @@ Como operador, quero abrir a ação gerada pela inspeção.
 
 - Prioridade: P0. Tamanho: M.
 - Dependências: FL-019; regra backend cria tarefa.
-- Status: planejada.
+- Status: parcial. Recorte manual integrado em 12/10/2026; [evidências e limites](../integracao-demonstravel.md).
 
 **Implementação**
 
@@ -50,7 +50,7 @@ Como operador, quero registrar uma execução sem apagar o histórico anterior.
 
 - Prioridade: P0. Tamanho: G.
 - Dependências: FL-008; FL-017; FL-023; papéis FL-006.
-- Status: planejada.
+- Status: parcial para ações online. Iniciar/concluir via API com auditoria atômica; execução offline, versão esperada e evento de execução permanecem planejados.
 
 **Implementação**
 

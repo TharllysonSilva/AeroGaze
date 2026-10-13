@@ -27,6 +27,11 @@ android {
 
     flavorDimensions += "environment"
     productFlavors {
+        create("qa") {
+            dimension = "environment"
+            applicationIdSuffix = ".qa"
+            versionNameSuffix = "-qa"
+        }
         create("dev") {
             dimension = "environment"
             applicationIdSuffix = ".dev"

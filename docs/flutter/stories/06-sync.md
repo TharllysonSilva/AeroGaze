@@ -10,7 +10,7 @@ Como operador, quero envio autenticado com confirmação inequívoca.
 
 - Prioridade: P0. Tamanho: G.
 - Dependências: FL-004/005/008/009; contrato API acordado.
-- Status: planejada.
+- Status: parcial. Recorte manual integrado em 12/10/2026; [evidências e limites](../integracao-demonstravel.md).
 
 **Implementação**
 
@@ -30,7 +30,7 @@ Como operador, quero que o app tente sincronizar sem perder nem duplicar evidên
 
 - Prioridade: P0. Tamanho: G.
 - Dependências: FL-016.
-- Status: planejada.
+- Status: parcial. Recorte manual integrado em 12/10/2026; [evidências e limites](../integracao-demonstravel.md).
 
 **Implementação**
 
@@ -50,7 +50,7 @@ Como operador, quero saber quais registros exigem minha atenção.
 
 - Prioridade: P0. Tamanho: M.
 - Dependências: FL-012; FL-017.
-- Status: planejada.
+- Status: parcial. Recorte manual integrado em 12/10/2026; [evidências e limites](../integracao-demonstravel.md).
 
 **Implementação**
 
@@ -70,7 +70,7 @@ Como operador, quero receber alertas e tarefas do mesmo fluxo enviado.
 
 - Prioridade: P0. Tamanho: G.
 - Dependências: FL-016/017; API changes/cursor.
-- Status: planejada.
+- Status: parcial. Recorte manual integrado em 12/10/2026; [evidências e limites](../integracao-demonstravel.md).
 
 **Implementação**
 

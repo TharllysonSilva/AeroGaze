@@ -4,6 +4,7 @@ import '../../app/design_system.dart';
 
 /// Fixtures from the visual references; none of these values are live readings.
 abstract final class CommandDemo {
+  static const farmName = 'Fazenda Demo Santa Aurora';
   static const healthIndex = 94;
   static const healthyAnimals = 250;
   static const anomalies = '05';

@@ -10,7 +10,11 @@ Como operador, quero entrar e selecionar apenas fazendas às quais tenho acesso.
 
 - Prioridade: P0. Tamanho: M.
 - Dependências: FL-001; API de identidade.
-- Status: planejada.
+- Status: parcial. Recorte manual integrado em 12/10/2026; [evidências e limites](../integracao-demonstravel.md).
+
+**Integração em 12/10/2026**
+
+Login real, JWT em armazenamento seguro, fazendas autorizadas e fila por organização/usuário/fazenda. Conta de integração criada sem substituir contas antigas. Recuperação/biometria permanecem simulações sem acesso à sessão real. Backend mantém autorização e cadastro/revogação de dispositivos.
 
 **Implementação**
 
@@ -30,7 +34,7 @@ Como operador, quero continuar capturando offline com autoria rastreável.
 
 - Prioridade: P0. Tamanho: M.
 - Dependências: FL-004; contrato de registro/revogação.
-- Status: planejada.
+- Status: parcial. Recorte manual integrado em 12/10/2026; [evidências e limites](../integracao-demonstravel.md).
 
 **Implementação**
 
@@ -50,7 +54,7 @@ Como gerente, quero que ações respeitem operador, veterinário, gerente, audit
 
 - Prioridade: P0. Tamanho: M.
 - Dependências: FL-004; matriz de permissões backend.
-- Status: planejada.
+- Status: parcial. Recorte manual integrado em 12/10/2026; [evidências e limites](../integracao-demonstravel.md).
 
 **Implementação**
 

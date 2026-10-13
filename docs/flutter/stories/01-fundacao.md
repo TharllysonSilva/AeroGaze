@@ -38,6 +38,8 @@ flutter pub get, flutter analyze e flutter test passam; app inicializa no Androi
 
 Análise, teste de bootstrap e execução Android. A execução física ainda deve ser registrada.
 
+Atualização em 12/10/2026: splash agora abre o login de demonstração, com a marca própria e navegação para recuperação e apoio. O Painel é montado após a entrada; suas cinco abas e o estado entre abas são preservados até sair. A execução deste novo fluxo em Android físico permanece pendente.
+
 ## FL-002 - Tema e navegação de campo
 
 Como operador, quero navegar com uma mão entre as funções de campo.
@@ -79,3 +81,5 @@ Nome e totais vêm da mesma fixture; todo dado fictício é identificado; nenhum
 **Verificação/evidência**
 
 Comparar painel e destinos. Fixture substituível por repositórios na integração.
+
+Atualização 13/10/2026: composição das referências aplicada ao fluxo autenticado em 0.3.0, com marca própria e cinco abas; snapshots de componentes usam dados de teste identificados. 40 testes Flutter e análise passaram. Ensaio QA físico de navegação, inspeção/outbox, início/conclusão e criação de revisão passou contra backend isolado, separado dos recibos reais de nuvem. Dados do cenário fictício vêm da API; captura GPS/câmera e ergonomia em múltiplos aparelhos continuam fora desta evidência. Detalhes em `docs/flutter/integracao-demonstravel.md`.

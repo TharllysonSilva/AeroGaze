@@ -10,7 +10,7 @@ Como operador, quero recuperar meus dados mesmo depois de fechar o app.
 
 - Prioridade: P0. Tamanho: M.
 - Dependências: FL-001.
-- Status: planejada.
+- Status: parcial. Recorte manual integrado em 12/10/2026; [evidências e limites](../integracao-demonstravel.md).
 
 **Implementação**
 
@@ -30,7 +30,7 @@ Como operador, quero salvar uma inspeção sem perder sua futura sincronização
 
 - Prioridade: P0. Tamanho: G.
 - Dependências: FL-007; contexto real ou demo explícito.
-- Status: planejada.
+- Status: parcial. Recorte manual integrado em 12/10/2026; [evidências e limites](../integracao-demonstravel.md).
 
 **Implementação**
 

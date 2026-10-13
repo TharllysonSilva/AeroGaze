@@ -3,7 +3,7 @@ enum AppEnvironment {
   prod;
 
   static AppEnvironment fromFlavor(String? flavor) => switch (flavor) {
-    null || 'dev' => AppEnvironment.dev,
+    null || 'dev' || 'qa' => AppEnvironment.dev,
     'prod' => AppEnvironment.prod,
     _ => throw ArgumentError.value(flavor, 'flavor', 'Use dev ou prod'),
   };

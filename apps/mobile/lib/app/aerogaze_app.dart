@@ -1,5 +1,10 @@
+import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../core/sync/operations_api.dart';
+import '../features/operations/operations_page.dart';
 import 'package:flutter/material.dart';
 
+import '../features/auth/login_page.dart';
 import '../features/dashboard/dashboard_page.dart';
 import '../features/map/map_page.dart';
 import '../features/scouting/scouting_page.dart';
@@ -14,11 +19,15 @@ class AeroGazeApp extends StatelessWidget {
     this.environment = AppEnvironment.dev,
     this.initialTab = 0,
     this.showSplash = true,
+    this.showLogin = true,
+    this.demoLogin = false,
     super.key,
   });
   final AppEnvironment environment;
   final int initialTab;
   final bool showSplash;
+  final bool showLogin;
+  final bool demoLogin;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
@@ -50,16 +59,156 @@ class AeroGazeApp extends StatelessWidget {
               AssetImage('assets/reference/aerogaze_scouting_pt.png'),
               AssetImage('assets/reference/aerogaze_rebanho_pt.png'),
             ],
-            child: FieldShell(environment: environment, initialTab: initialTab),
+            child: _entry(),
           )
-        : FieldShell(environment: environment, initialTab: initialTab),
+        : _entry(),
   );
+  Widget _entry() => showLogin
+      ? AuthenticationGate(
+          environment: environment,
+          initialTab: initialTab,
+          demoLogin: demoLogin,
+        )
+      : FieldShell(environment: environment, initialTab: initialTab);
+}
+
+class AuthenticationGate extends StatefulWidget {
+  const AuthenticationGate({
+    required this.environment,
+    this.initialTab = 0,
+    this.demoLogin = false,
+    super.key,
+  });
+  final AppEnvironment environment;
+  final int initialTab;
+  final bool demoLogin;
+  @override
+  State<AuthenticationGate> createState() => _AuthenticationGateState();
+}
+
+class _AuthenticationGateState extends State<AuthenticationGate> {
+  static const _storage = FlutterSecureStorage();
+  static const _url = String.fromEnvironment(
+    'API_URL',
+    defaultValue: 'https://aerogaze-api.onrender.com',
+  );
+  ApiSession? _session;
+  bool _signedIn = false;
+  bool _loading = true;
+  @override
+  void initState() {
+    super.initState();
+    _restore();
+  }
+
+  Future<void> _restore() async {
+    if (!widget.demoLogin) {
+      try {
+        final raw = await _storage.read(key: 'api_session');
+        if (raw != null) {
+          final session = ApiSession.fromJson(jsonDecode(raw));
+          final claims = jsonDecode(
+            utf8.decode(
+              base64Url.decode(
+                base64Url.normalize(session.token.split('.')[1]),
+              ),
+            ),
+          );
+          if (session.baseUrl == _url &&
+              (claims['exp'] as int) * 1000 >
+                  DateTime.now().millisecondsSinceEpoch) {
+            _session = session;
+          }
+        }
+      } catch (_) {
+        /* Login remains available if secure storage cannot be read. */
+      }
+    }
+    if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _authenticate(String email, String password) async {
+    final api = OperationsApi(_url);
+    try {
+      final session = await api.login(email, password);
+      await _storage.write(
+        key: 'api_session',
+        value: jsonEncode(session.toJson()),
+      );
+      if (mounted) setState(() => _session = session);
+    } finally {
+      api.close();
+    }
+  }
+
+  Future<void> _logout() async {
+    await _storage.delete(key: 'api_session');
+    if (mounted) {
+      setState(() {
+        _session = null;
+        _signedIn = false;
+      });
+    }
+  }
+
+  void _signIn(String operator) {
+    if (!widget.demoLogin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Este método é simulado. Entre com seu usuário cadastrado na API.',
+          ),
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    setState(() => _signedIn = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_session != null) {
+      return OperationsPage(
+        session: _session!,
+        onSignOut: _logout,
+        onOpenDemo: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => FieldShell(
+              environment: widget.environment,
+              initialTab: widget.initialTab,
+            ),
+          ),
+        ),
+      );
+    }
+    if (_signedIn) {
+      return FieldShell(
+        environment: widget.environment,
+        initialTab: widget.initialTab,
+        onSignOut: () => setState(() => _signedIn = false),
+      );
+    }
+    return LoginPage(
+      onSignIn: _signIn,
+      authenticate: widget.demoLogin ? null : _authenticate,
+    );
+  }
 }
 
 class FieldShell extends StatefulWidget {
-  const FieldShell({required this.environment, this.initialTab = 0, super.key});
+  const FieldShell({
+    required this.environment,
+    this.initialTab = 0,
+    this.onSignOut,
+    super.key,
+  });
   final AppEnvironment environment;
   final int initialTab;
+  final VoidCallback? onSignOut;
   @override
   State<FieldShell> createState() => _FieldShellState();
 }
@@ -91,7 +240,10 @@ class _FieldShellState extends State<FieldShell> {
       bottom: false,
       child: Column(
         children: [
-          CommandHeader(environment: widget.environment),
+          CommandHeader(
+            environment: widget.environment,
+            onSignOut: widget.onSignOut,
+          ),
           Expanded(
             child: IndexedStack(
               index: _index,
@@ -158,8 +310,15 @@ class _FieldShellState extends State<FieldShell> {
 }
 
 class CommandHeader extends StatelessWidget {
-  const CommandHeader({required this.environment, super.key});
+  final bool connected;
+  const CommandHeader({
+    required this.environment,
+    this.onSignOut,
+    this.connected = false,
+    super.key,
+  });
   final AppEnvironment environment;
+  final VoidCallback? onSignOut;
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -171,10 +330,10 @@ class CommandHeader extends StatelessWidget {
           final compact = constraints.maxWidth < 330;
           return Row(
             children: [
-              const Icon(
-                Icons.satellite_alt,
-                color: CommandColors.primary,
-                size: 28,
+              Image.asset(
+                'assets/branding/aerogaze-logo.png',
+                width: 28,
+                height: 28,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -195,8 +354,10 @@ class CommandHeader extends StatelessWidget {
                   onTap: () => showDemoDetail(
                     context,
                     'AeroGaze Command',
-                    'Ambiente ${environment.name}. Painel, mapa, scouting, rebanho e tarefas '
-                        'usam dados ilustrativos das referências fornecidas. Sensores e IA não estão conectados.',
+                    connected
+                        ? 'Autenticação e ações conectadas à API. Cenário e posições fictícios. Sensores e IA não conectados.'
+                        : 'Ambiente ${environment.name}. Painel, mapa, scouting, rebanho e tarefas '
+                              'usam dados ilustrativos das referências fornecidas. Sensores e IA não estão conectados.',
                   ),
                   borderRadius: BorderRadius.circular(24),
                   child: Container(
@@ -234,7 +395,15 @@ class CommandHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 24),
+              if (onSignOut != null)
+                IconButton(
+                  key: const ValueKey('logout'),
+                  tooltip: 'Sair da conta',
+                  onPressed: onSignOut,
+                  icon: const Icon(Icons.logout, size: 20),
+                )
+              else
+                const SizedBox(width: 24),
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -301,6 +470,15 @@ class CommandNavigation extends StatelessWidget {
             for (var i = 0; i < labels.length; i++)
               Expanded(
                 child: Padding(
+                  key: ValueKey(
+                    [
+                      'tab-panel',
+                      'tab-map',
+                      'tab-scout',
+                      'tab-herd',
+                      'tab-tasks',
+                    ][i],
+                  ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 5,
                     vertical: 8,

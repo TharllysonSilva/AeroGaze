@@ -1,0 +1,826 @@
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../app/design_system.dart';
+import '../../core/database/field_database.dart';
+import '../../core/sync/operations_api.dart';
+import '../../core/sync/sync_runner.dart';
+import '../auth/auth_widgets.dart';
+import 'scenario_view.dart';
+import 'review_dialog.dart';
+import '../../core/design/reference_photo.dart';
+import '../../app/aerogaze_app.dart' show CommandHeader, CommandNavigation;
+import '../../app/app_environment.dart';
+
+class OperationsPage extends StatefulWidget {
+  const OperationsPage({
+    required this.session,
+    required this.onSignOut,
+    required this.onOpenDemo,
+    super.key,
+  });
+  final ApiSession session;
+  final Future<void> Function() onSignOut;
+  final VoidCallback onOpenDemo;
+  @override
+  State<OperationsPage> createState() => _OperationsPageState();
+}
+
+class _OperationsPageState extends State<OperationsPage>
+    with WidgetsBindingObserver {
+  late final _api = OperationsApi(widget.session.baseUrl);
+  late final _db = FieldDatabase();
+  late final _sync = SyncRunner(_db, _api);
+  final _notes = TextEditingController();
+  final _storage = const FlutterSecureStorage();
+  List<Map<String, dynamic>> _farms = [],
+      _tasks = [],
+      _alerts = [],
+      _plots = [];
+  int _tab = 0;
+  String _taskSearch = '';
+  bool _showSettings = false;
+  String? _updatedAt;
+  bool _cached = false;
+  List<OutboxData> _queue = [];
+  final Map<String, Map<String, dynamic>> _receipts = {};
+  String? _farm, _error, _deviceId;
+  bool _busy = false, _offlineTest = false;
+  Timer? _timer;
+  String get _scope => widget.session.scope(_farm!);
+  String get _cacheKey =>
+      'farms:${widget.session.baseUrl}:${widget.session.organizationId}:${widget.session.userId}';
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _load();
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) => _synchronize());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _synchronize();
+  }
+
+  Future<void> _load() async {
+    try {
+      final cached = await _storage.read(key: _cacheKey);
+      if (cached != null) {
+        _farms = (jsonDecode(cached) as List).cast<Map<String, dynamic>>();
+        if (_farms.isNotEmpty) _farm = _farms.first['id'];
+      }
+      if (mounted) setState(() {});
+      if (_farm != null && mounted) {
+        await _restoreOperations();
+        await _queueRefresh();
+      }
+      final farms = await _api.list('/v1/farms', widget.session);
+      await _storage.write(key: _cacheKey, value: jsonEncode(farms));
+      if (!mounted) return;
+      setState(() {
+        _farms = farms;
+        _farm = farms.isEmpty ? null : farms.first['id'];
+        _error = null;
+      });
+      if (_farm != null) {
+        await _restoreOperations();
+        await _db.resume(_scope);
+        await _refresh();
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = '$error');
+      if (mounted && _farm != null) await _queueRefresh();
+    }
+  }
+
+  Future<void> _queueRefresh() async {
+    if (!mounted || _farm == null) return;
+    final scope = _scope;
+    final rows = await _db.rows(scope);
+    if (mounted && _farm != null && _scope == scope) {
+      setState(() => _queue = rows.reversed.toList());
+    }
+  }
+
+  Future<void> _refresh() async {
+    if (_farm == null) return;
+    final farm = _farm;
+    await _queueRefresh();
+    if (_offlineTest) return;
+    try {
+      final values = await Future.wait([
+        _api.list('/v1/tasks?farmId=$farm', widget.session),
+        _api.list('/v1/alerts?farmId=$farm', widget.session),
+        _api.list('/v1/farms/$farm/plots', widget.session),
+      ]);
+      final updatedAt = DateTime.now().toUtc().toIso8601String();
+      if (!mounted || farm != _farm) {
+        return;
+      }
+      if (mounted) {
+        setState(() {
+          _tasks = values[0];
+          _alerts = values[1];
+          _plots = values[2];
+          _updatedAt = updatedAt;
+          _cached = false;
+          _error = null;
+        });
+      }
+      await _storage.write(
+        key: 'operations:${widget.session.scope(farm!)}',
+        value: jsonEncode({
+          'tasks': values[0],
+          'alerts': values[1],
+          'plots': values[2],
+          'updatedAt': updatedAt,
+        }),
+      );
+      final queue = List<OutboxData>.of(_queue);
+      for (final row in queue.where((r) => r.status == 'synced').take(20)) {
+        final receipt = await _api.request(
+          'GET',
+          '/v1/sync/events/${row.id}/receipt',
+          token: widget.session.token,
+        );
+        if (mounted && farm == _farm) {
+          setState(
+            () => _receipts[row.id] = (receipt as Map).cast<String, dynamic>(),
+          );
+        }
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _error = '$error';
+          _cached = true;
+        });
+      }
+    }
+  }
+
+  Future<void> _save() async {
+    if (_farm == null || _busy || widget.session.role == 'auditor') return;
+    if (_notes.text.trim().isEmpty) {
+      setState(() => _error = 'Descreva a inspeção antes de salvar.');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await _db.save(_scope, _notes.text);
+      _notes.clear();
+      await _queueRefresh();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Inspeção salva no SQLite e enfileirada.'),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _error =
+              'Não foi possível salvar no aparelho. A descrição foi mantida.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _synchronize({bool manual = false}) async {
+    if (!mounted || _busy || _farm == null || _offlineTest) return;
+    setState(() => _busy = true);
+    try {
+      await _sync.run(widget.session, _farm!, manual: manual);
+      await _refresh();
+    } catch (error) {
+      if (mounted) setState(() => _error = '$error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _switchFarm(String? farm) async {
+    if (_busy || farm == null) return;
+    setState(() {
+      _farm = farm;
+      _queue = [];
+      _tasks = [];
+      _alerts = [];
+      _plots = [];
+      _updatedAt = null;
+      _cached = false;
+      _deviceId = null;
+      _receipts.clear();
+      _error = null;
+    });
+    await _restoreOperations();
+    await _refresh();
+  }
+
+  Future<void> _restoreOperations() async {
+    final scope = _scope;
+    final device = await _db.device(scope);
+    if (!mounted || scope != _scope) return;
+    setState(() => _deviceId = device);
+    final raw = await _storage.read(key: 'operations:$scope');
+    if (!mounted || scope != _scope || raw == null) return;
+    final cached = jsonDecode(raw) as Map;
+    setState(() {
+      _tasks = (cached['tasks'] as List).cast<Map<String, dynamic>>();
+      _alerts = (cached['alerts'] as List).cast<Map<String, dynamic>>();
+      _plots = (cached['plots'] as List).cast<Map<String, dynamic>>();
+      _updatedAt = cached['updatedAt'] as String?;
+      _cached = true;
+    });
+  }
+
+  Future<void> _revalidate(OutboxData row) async {
+    if (_busy || _offlineTest || row.scope != _scope) return;
+    setState(() => _busy = true);
+    try {
+      final farms = await _api.list('/v1/farms', widget.session);
+      if (!farms.any((farm) => farm['id'] == _farm)) {
+        throw const ApiFailure(403, 'Acesso à fazenda não autorizado.');
+      }
+      await _db.retryAccessDenied(row.id, row.scope);
+      await _sync.run(widget.session, _farm!, manual: true);
+      await _refresh();
+    } catch (error) {
+      if (mounted) setState(() => _error = '$error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _registerDevice() async {
+    if (_busy || _farm == null || _deviceId == null || _offlineTest) return;
+    setState(() => _busy = true);
+    try {
+      await _api.request(
+        'POST',
+        '/v1/sync/devices',
+        token: widget.session.token,
+        body: {'farmId': _farm, 'deviceId': _deviceId},
+      );
+      for (final row in await _db.rows(_scope)) {
+        await _db.retryAccessDenied(row.id, _scope);
+      }
+      await _queueRefresh();
+      if (mounted) {
+        setState(() => _error = null);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Aparelho cadastrado. A fila pode ser sincronizada.'),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = '$error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _verify(Map<String, dynamic> batch) async {
+    try {
+      final result =
+          await _api.request('GET', '/v1/verify/${batch['id']}') as Map;
+      final chain = result['onChain'] as Map;
+      final anchor = result['anchor'] as Map;
+      final complete =
+          result['valid'] == true &&
+          result['status'] == 'ancorado' &&
+          anchor['mode'] == 'evm' &&
+          chain['checked'] == true &&
+          chain['matches'] == true &&
+          chain['revoked'] == false;
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(
+            complete
+                ? 'Prova conferida na rede'
+                : 'Verificação ainda incompleta',
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  complete
+                      ? 'A raiz recalculada confere com o contrato. Rede ${anchor['chainId']}.'
+                      : 'Não há confirmação completa da rede nesta consulta. Consulte o estado e tente novamente.',
+                ),
+                const SizedBox(height: 16),
+                SelectableText(
+                  '${widget.session.baseUrl}/v1/verify/${batch['id']}',
+                ),
+                const SizedBox(height: 12),
+                SelectableText('Transação: ${anchor['txRef'] ?? 'pendente'}'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                await Clipboard.setData(
+                  ClipboardData(
+                    text: '${widget.session.baseUrl}/v1/verify/${batch['id']}',
+                  ),
+                );
+                if (context.mounted) Navigator.pop(context);
+              },
+              child: const Text('Copiar link público'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Fechar'),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      if (mounted) setState(() => _error = '$error');
+    }
+  }
+
+  Future<void> _taskProof(String eventId) async {
+    try {
+      final receipt = await _api.request(
+        'GET',
+        '/v1/sync/events/$eventId/receipt',
+        token: widget.session.token,
+      );
+      final batch = receipt['batch'] as Map<String, dynamic>?;
+      if (!mounted) return;
+      if (batch != null) {
+        await _verify(batch);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Evento recebido; aguardando formação do lote.'),
+          ),
+        );
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = '$error');
+    }
+  }
+
+  Future<void> _newReview() async {
+    final text = await showDialog<String>(
+      context: context,
+      builder: (_) => const ReviewDialog(),
+    );
+    if (text == null || text.isEmpty || !mounted || _farm == null || _busy) {
+      return;
+    }
+    _notes.text = text;
+    await _save();
+    if (_notes.text.trim().isNotEmpty) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    await _synchronize(manual: true);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Inspeção salva; tarefa gerada após aceitação pela API. Consulte a fila no Scout.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _changeTaskStatus(String taskId, String status) async {
+    if (_busy ||
+        _offlineTest ||
+        _farm == null ||
+        ![
+          'operador',
+          'veterinario',
+          'gerente',
+          'administrador',
+        ].contains(widget.session.role)) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await _api.setTaskStatus(widget.session, taskId, status);
+      await _refresh();
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _error =
+              'Alteração de tarefa não confirmada. Atualize a lista antes de repetir. $error',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _timer?.cancel();
+    _notes.dispose();
+    _api.close();
+    unawaited(_db.close());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    bottomNavigationBar: CommandNavigation(
+      index: _tab,
+      onSelect: (i) => setState(() => _tab = i),
+    ),
+    body: SafeArea(
+      child: Column(
+        children: [
+          CommandHeader(
+            environment: AppEnvironment.fromFlavor(appFlavor),
+            onSignOut: widget.onSignOut,
+            connected: true,
+          ),
+          Expanded(
+            child: Stack(
+              children: [
+                if (_tab == 2)
+                  const Positioned.fill(
+                    child: ReferencePhoto(
+                      asset: 'assets/reference/aerogaze_scouting_pt.png',
+                      region: Rect.fromLTWH(0, 98, 34, 1370),
+                    ),
+                  ),
+                SingleChildScrollView(
+                  key: PageStorageKey('operation-scroll-$_tab'),
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${widget.session.name} • ${widget.session.role} • SIMULAÇÃO',
+                              style: CommandType.label(size: 10),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Conta e fazenda',
+                            onPressed: () =>
+                                setState(() => _showSettings = !_showSettings),
+                            icon: const Icon(Icons.tune),
+                          ),
+                        ],
+                      ),
+                      if (_error != null) AuthNotice(_error!),
+                      if (_showSettings && _farms.isNotEmpty)
+                        DropdownButtonFormField<String>(
+                          key: ValueKey(_farm),
+                          initialValue: _farm,
+                          isExpanded: true,
+                          items: _farms
+                              .map(
+                                (f) => DropdownMenuItem<String>(
+                                  value: f['id'],
+                                  child: Text(
+                                    f['name'],
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: _busy ? null : _switchFarm,
+                          decoration: const InputDecoration(
+                            labelText: 'Fazenda autorizada pela API',
+                          ),
+                        ),
+                      if (_farms.isEmpty)
+                        const Text(
+                          'Aguardando uma fazenda autorizada. Verifique a conexão e o cadastro.',
+                        ),
+                      if (_showSettings)
+                        TextButton(
+                          onPressed: _busy ? null : _load,
+                          child: const Text('Atualizar fazendas'),
+                        ),
+                      if (_showSettings)
+                        Text(
+                          'Alertas: ${_alerts.length} • Áreas: ${_plots.length}',
+                          style: CommandType.label(),
+                        ),
+                      if (_showSettings && _updatedAt != null)
+                        Text(
+                          '${_cached ? 'CACHE' : 'API'} • $_updatedAt',
+                          style: CommandType.body(size: 11),
+                        ),
+                      const SizedBox(height: 12),
+                      ...switch (_tab) {
+                        0 => _dashboard(),
+                        1 => _map(),
+                        2 => _scout(),
+                        3 => [_scenario('rebanho')],
+                        4 => _tasksView(),
+                        _ => <Widget>[],
+                      },
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+  List<Widget> _scout() => [
+    _scenario('scout'),
+    if (_deviceId != null) ...[
+      SelectableText('Aparelho: $_deviceId', style: CommandType.body(size: 10)),
+      if (['gerente', 'administrador'].contains(widget.session.role))
+        TextButton(
+          key: const ValueKey('operation-register-device'),
+          onPressed: _busy || _offlineTest ? null : _registerDevice,
+          child: const Text('Cadastrar este aparelho na fazenda'),
+        ),
+    ],
+    AuthCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'REGISTRAR INSPEÇÃO MANUAL',
+            style: CommandType.display(size: 16),
+          ),
+          const SizedBox(height: 12),
+          AuthInput(
+            label: 'OBSERVAÇÃO EM CAMPO',
+            fieldKey: const ValueKey('operation-notes'),
+            controller: _notes,
+            icon: Icons.edit_note,
+            maxLines: 3,
+            hint: 'Descreva o que precisa de revisão humana',
+          ),
+          const SizedBox(height: 16),
+          AuthAction(
+            key: const ValueKey('operation-save'),
+            label: _busy ? 'AGUARDE...' : 'SALVAR OBSERVAÇÃO',
+            icon: Icons.save_outlined,
+            onPressed:
+                _busy || _farm == null || widget.session.role == 'auditor'
+                ? null
+                : _save,
+          ),
+        ],
+      ),
+    ),
+    SwitchListTile(
+      key: const ValueKey('operation-offline'),
+      contentPadding: EdgeInsets.zero,
+      title: const Text('Ensaio sem envio'),
+      subtitle: const Text(
+        'Suspende o sincronizador; permite salvar e reabrir a fila local.',
+      ),
+      value: _offlineTest,
+      onChanged: _busy ? null : (v) => setState(() => _offlineTest = v),
+    ),
+    AuthAction(
+      key: const ValueKey('operation-sync'),
+      label: _busy ? 'SINCRONIZANDO...' : 'SINCRONIZAR E CONSULTAR API',
+      icon: Icons.sync,
+      onPressed: _busy || _offlineTest || _farm == null
+          ? null
+          : () => _synchronize(manual: true),
+    ),
+    const SizedBox(height: 22),
+    Text(
+      'FILA LOCAL • ${_queue.length} REGISTROS',
+      style: CommandType.display(size: 16),
+    ),
+    if (_queue.isEmpty)
+      const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Text('Nenhuma inspeção nesta conta/fazenda.'),
+      ),
+    for (final row in _queue) _eventCard(row),
+    const SizedBox(height: 22),
+  ];
+  List<Widget> _tasksView() => [
+    Text('Central de Tarefas', style: CommandType.display(size: 28)),
+    const SizedBox(height: 20),
+    TextField(
+      key: const ValueKey('live-task-search'),
+      onChanged: (v) => setState(() => _taskSearch = v.toLowerCase()),
+      decoration: const InputDecoration(
+        hintText: 'Buscar tarefas ou ordens...',
+        prefixIcon: Icon(Icons.search),
+      ),
+    ),
+    const SizedBox(height: 24),
+    Row(
+      children: [
+        Expanded(
+          child: Text('TAREFAS PRIORITÁRIAS', style: CommandType.label()),
+        ),
+        IconButton(
+          tooltip: 'Nova tarefa de revisão',
+          onPressed: widget.session.role == 'auditor' ? null : _newReview,
+          icon: const Icon(
+            Icons.add_circle,
+            color: CommandColors.primary,
+            size: 36,
+          ),
+        ),
+      ],
+    ),
+
+    const AuthNotice(
+      'Iniciar e concluir tarefas exige conexão com a API. A execução offline de tarefas ainda não está disponível.',
+    ),
+    Text(
+      'TAREFAS DA API • ${_tasks.length}',
+      style: CommandType.display(size: 16),
+    ),
+    for (final task in _tasks.where(
+      (t) => '${t['title']} ${t['description']}'.toLowerCase().contains(
+        _taskSearch,
+      ),
+    ))
+      Padding(
+        padding: const EdgeInsets.only(top: 12),
+        child: CommandPanel(
+          accent: task['status'] == 'concluida'
+              ? CommandColors.dim
+              : task['priority'] == 'critica'
+              ? CommandColors.error
+              : CommandColors.primary,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    task['title'].toString().toLowerCase().contains('irrig')
+                        ? Icons.water_drop
+                        : Icons.assignment,
+                    color: CommandColors.primary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      task['title'],
+                      style: CommandType.display(size: 20),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (task['description'] != null)
+                Text(task['description'], style: CommandType.body(size: 12)),
+              Text(
+                '${switch (task['status']) {
+                  'pendente' => 'Pendente',
+                  'em_progresso' => 'Em andamento',
+                  'concluida' => 'Concluída',
+                  _ => task['status'],
+                }} • ${task['priority']}',
+                style: CommandType.label(size: 11),
+              ),
+              if (task['source_event_id'] != null)
+                SelectableText(
+                  'Evento: ${task['source_event_id']}',
+                  style: CommandType.body(size: 10),
+                ),
+              if (task['source_event_id'] != null)
+                TextButton(
+                  onPressed: () =>
+                      _taskProof(task['source_event_id'] as String),
+                  child: const Text('Consultar prova deste evento'),
+                ),
+              if ([
+                'operador',
+                'veterinario',
+                'gerente',
+                'administrador',
+              ].contains(widget.session.role))
+                Wrap(
+                  spacing: 12,
+                  children: [
+                    if (task['status'] == 'pendente')
+                      TextButton(
+                        key: ValueKey('task-start:${task['id']}'),
+                        onPressed: _busy || _offlineTest
+                            ? null
+                            : () =>
+                                  _changeTaskStatus(task['id'], 'em_progresso'),
+                        child: const Text('Iniciar tarefa'),
+                      ),
+                    if (task['status'] == 'em_progresso')
+                      TextButton(
+                        key: ValueKey('task-complete:${task['id']}'),
+                        onPressed: _busy || _offlineTest
+                            ? null
+                            : () => _changeTaskStatus(task['id'], 'concluida'),
+                        child: const Text('Concluir tarefa'),
+                      ),
+                    if (task['status'] == 'concluida')
+                      const Text(
+                        'Concluída pela API',
+                        style: TextStyle(color: CommandColors.primary),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+    if (_tasks.isEmpty)
+      const AuthNotice('Nenhuma tarefa recebida nesta fazenda.'),
+    TextButton(
+      onPressed: _busy ? null : _refresh,
+      child: const Text('Atualizar tarefas'),
+    ),
+  ];
+  Widget _scenario(String section) => _farm == null
+      ? const Text('Selecione uma fazenda.')
+      : ScenarioView(
+          key: ValueKey('scenario:$_scope:$section'),
+          session: widget.session,
+          farmId: _farm!,
+          section: section,
+          offline: _offlineTest,
+          onChanged: _refresh,
+          onNavigate: (i) => setState(() => _tab = i),
+        );
+  List<Widget> _dashboard() => [
+    _scenario('painel'),
+    TextButton(onPressed: _refresh, child: const Text('Atualizar painel')),
+  ];
+  List<Widget> _map() => [_scenario('mapa')];
+  Widget _eventCard(OutboxData row) {
+    final receipt = _receipts[row.id];
+    final batch = receipt?['batch'] as Map<String, dynamic>?;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: AuthCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SelectableText(row.id, style: CommandType.body(size: 11)),
+            Text(switch (row.status) {
+              'pending' => 'Pendente de envio',
+              'sending' => 'Enviando',
+              'retry' => 'Aguardando nova tentativa',
+              'synced' => 'Ingestão confirmada • ${row.ack}',
+              'paused' => 'Reconecte à sua conta',
+              _ => 'Rejeitado; original preservado',
+            }, style: CommandType.label(size: 11)),
+            if (row.error != null)
+              Text(
+                row.error!,
+                style: CommandType.body(size: 11, color: CommandColors.error),
+              ),
+            if (row.status == 'rejected' && row.httpStatus == 403)
+              TextButton(
+                onPressed: _busy || _offlineTest
+                    ? null
+                    : () => _revalidate(row),
+                child: const Text('Revalidar após cadastro do aparelho'),
+              ),
+            if (receipt != null)
+              Text(
+                'Tarefas deste evento: ${(receipt['tasks'] as List).length}',
+                style: CommandType.body(size: 12),
+              ),
+            if (row.status == 'synced')
+              Text(
+                batch == null
+                    ? 'Aguardando formação do lote'
+                    : 'Lote ${batch['status']} • ${batch['chain_id'] ?? 'rede pendente'}',
+                style: CommandType.body(size: 12),
+              ),
+            if (batch != null)
+              TextButton(
+                onPressed: () => _verify(batch),
+                child: const Text('Verificação pública da prova'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
