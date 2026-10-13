@@ -104,3 +104,5 @@ Seis contas tiveram login 200 revalidado na API publicada. Perfis e escopo estã
 - Web: TypeScript e build aprovados. Correção do menu publicada e conferida em navegador autenticado: em 1440px, menu termina em x=320 e conteúdo começa em x=320, sem sobreposição; abaixo de 1024px navegação fica horizontal. Falha/reparo pelo navegador confirmou estado final `parada` na API.
 
 As verificações locais de prova mock não substituem os recibos Base/Solana reais registrados acima. Foto de fundo, sensores, análise agronômica e metabólica continuam explicitamente simulados, sem hardware ou modelo clínico conectado.
+
+Build Android após ensaio QA: não usar `--no-pub` ao trocar debug/release. Na versão instalada do SDK, esse parâmetro também pula a regeneração dos registradores específicos da plataforma; um registrador de QA inclui `integration_test`, excluído das dependências de release. Usar `flutter build apk --flavor prod --release` e depois `flutter build apk --flavor dev --debug`, de forma sequencial. Não houve alteração manual do arquivo Java gerado ou do SDK.
